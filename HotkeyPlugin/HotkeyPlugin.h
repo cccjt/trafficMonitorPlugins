@@ -37,9 +37,6 @@ private:
     HotkeyPlugin();
     ~HotkeyPlugin();
 
-    // 热键执行回调
-    static void OnHotkeyExecuted(const std::wstring& scriptPath, bool success, void* userData);
-
     // 获取插件目录
     std::wstring GetPluginDir() const;
 
@@ -50,9 +47,6 @@ private:
     HotkeyConfig m_config;          // 配置
     HotkeyManager m_manager;        // 热键管理器
     HotkeyItem m_item;              // 显示项目
-
-    std::wstring m_tooltip;         // 鼠标提示文本缓存
-    std::wstring m_lastScriptName;  // 最后执行的脚本名(用于显示)
 
     bool m_initialized = false;     // 是否已初始化
 };

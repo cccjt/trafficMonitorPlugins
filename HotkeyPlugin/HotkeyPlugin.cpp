@@ -37,7 +37,6 @@ HotkeyPlugin::HotkeyPlugin()
     // 初始化热键管理器
     if (m_manager.Initialize())
     {
-        m_manager.SetCallback(&HotkeyPlugin::OnHotkeyExecuted, this);
         ApplyConfig();
     }
 
@@ -126,22 +125,8 @@ const wchar_t* HotkeyPlugin::GetInfo(PluginInfoIndex index)
 
 const wchar_t* HotkeyPlugin::GetTooltipInfo()
 {
-    std::wostringstream oss;
-    int total = static_cast<int>(m_config.GetItems().size());
-    int enabled = m_config.GetEnabledCount();
-    int registered = m_manager.GetRegisteredCount();
-
-    oss << L"热键脚本插件\r\n";
-    oss << L"已启用: " << enabled << L" / " << total << L"\r\n";
-    oss << L"已注册: " << registered;
-
-    if (!m_lastScriptName.empty())
-    {
-        oss << L"\r\n最后执行: " << m_lastScriptName;
-    }
-
-    m_tooltip = oss.str();
-    return m_tooltip.c_str();
+    // 不显示鼠标悬停提示
+    return L"";
 }
 
 std::wstring HotkeyPlugin::GetDisplayText() const
@@ -161,14 +146,3 @@ void HotkeyPlugin::ApplyConfig()
     m_manager.RegisterAll(m_config.GetItems());
 }
 
-void HotkeyPlugin::OnHotkeyExecuted(const std::wstring& scriptPath, bool success, void* userData)
-{
-    HotkeyPlugin* self = static_cast<HotkeyPlugin*>(userData);
-    if (self == nullptr) return;
-
-    // 提取脚本文件名用于显示
-    std::wstring name = scriptPath;
-    size_t pos = name.find_last_of(L"\\/");
-    if (pos != std::wstring::npos) name = name.substr(pos + 1);
-    self->m_lastScriptName = name;
-}
