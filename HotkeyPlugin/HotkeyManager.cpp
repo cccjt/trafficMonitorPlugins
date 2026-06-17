@@ -3,6 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <iomanip>
+#include <thread>
 #include <Shlwapi.h>
 
 #pragma comment(lib, "Shlwapi.lib")
@@ -222,32 +223,6 @@ void HotkeyManager::OnHotKey(int id)
     DebugLog(L"OnHotKey: ExecuteScript returned " + std::wstring(success ? L"true" : L"false"));
 }
 
-// 将宽字符串按 UTF-16 LE 字节数组进行 Base64 编码(PowerShell -EncodedCommand 需要)
-static std::wstring Base64EncodeWString(const std::wstring& str)
-{
-    static const wchar_t base64Chars[] =
-        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    const BYTE* bytes = reinterpret_cast<const BYTE*>(str.c_str());
-    size_t byteCount = str.size() * sizeof(wchar_t);
-    std::wstring result;
-    result.reserve(((byteCount + 2) / 3) * 4);
-
-    for (size_t i = 0; i < byteCount; i += 3)
-    {
-        size_t remaining = byteCount - i;
-        DWORD triple = bytes[i];
-        if (remaining > 1) triple |= (static_cast<DWORD>(bytes[i + 1]) << 8);
-        if (remaining > 2) triple |= (static_cast<DWORD>(bytes[i + 2]) << 16);
-
-        result.push_back(base64Chars[(triple >> 0) & 0x3F]);
-        result.push_back(base64Chars[(triple >> 6) & 0x3F]);
-        result.push_back(remaining > 1 ? base64Chars[(triple >> 12) & 0x3F] : L'=');
-        result.push_back(remaining > 2 ? base64Chars[(triple >> 18) & 0x3F] : L'=');
-    }
-    return result;
-}
-
 // 查找可用的 PowerShell 可执行文件
 static std::wstring FindPowerShellExe()
 {
@@ -283,15 +258,47 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
 {
     if (scriptCode.empty()) return false;
 
-    std::wstring encoded = Base64EncodeWString(scriptCode);
     std::wstring psExe = FindPowerShellExe();
 
-    // 构造命令行:<powershell> -ExecutionPolicy Bypass -NoProfile -EncodedCommand <base64>
+    // 生成临时脚本文件,避免 -EncodedCommand 编码问题
+    wchar_t tempPath[MAX_PATH] = { 0 };
+    ::GetTempPathW(MAX_PATH, tempPath);
+    std::wstring scriptFile = std::wstring(tempPath) + L"HotkeyPlugin_Run_"
+        + std::to_wstring(::GetCurrentProcessId()) + L"_"
+        + std::to_wstring(::GetTickCount()) + L".ps1";
+
+    {
+        // 将脚本代码保存为 UTF-8 with BOM,兼容性最好
+        int size = ::WideCharToMultiByte(CP_UTF8, 0, scriptCode.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        if (size <= 0)
+        {
+            DebugLog(L"ExecuteScript: WideCharToMultiByte failed");
+            return false;
+        }
+        std::string utf8(size, 0);
+        ::WideCharToMultiByte(CP_UTF8, 0, scriptCode.c_str(), -1, &utf8[0], size, nullptr, nullptr);
+        if (!utf8.empty() && utf8.back() == '\0') utf8.pop_back();
+
+        std::ofstream fs(scriptFile, std::ios::binary);
+        if (!fs.is_open())
+        {
+            DebugLog(L"ExecuteScript: failed to write temp script " + scriptFile);
+            return false;
+        }
+        const char bom[] = "\xEF\xBB\xBF";
+        fs.write(bom, 3);
+        fs.write(utf8.data(), utf8.size());
+    }
+
+    DebugLog(L"ExecuteScript: scriptFile=" + scriptFile);
+
+    // 构造命令行:<powershell> -ExecutionPolicy Bypass -NoProfile -File "temp.ps1"
     std::wostringstream cmd;
-    cmd << L"\"" << psExe << L"\" -ExecutionPolicy Bypass -NoProfile -EncodedCommand " << encoded;
+    cmd << L"\"" << psExe << L"\" -ExecutionPolicy Bypass -NoProfile -File \""
+        << scriptFile << L"\"";
 
     std::wstring cmdLine = cmd.str();
-    DebugLog(L"ExecuteScript: exe=" + psExe + L" cmdLen=" + std::to_wstring(cmdLine.size()));
+    DebugLog(L"ExecuteScript: cmdLen=" + std::to_wstring(cmdLine.size()));
 
     STARTUPINFOW si = { 0 };
     si.cb = sizeof(STARTUPINFOW);
@@ -314,11 +321,21 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
     {
         DWORD err = ::GetLastError();
         DebugLog(L"ExecuteScript: CreateProcess failed err=" + std::to_wstring(err));
+        ::DeleteFileW(scriptFile.c_str());
         return false;
     }
 
     DebugLog(L"ExecuteScript: CreateProcess ok pid=" + std::to_wstring(pi.dwProcessId));
-    ::CloseHandle(pi.hThread);
-    ::CloseHandle(pi.hProcess);
+
+    // 启动一个后台线程,等进程结束后删除临时脚本文件
+    HANDLE hProcess = pi.hProcess;
+    HANDLE hThread = pi.hThread;
+    std::thread([hProcess, hThread, scriptFile]() {
+        ::WaitForSingleObject(hProcess, INFINITE);
+        ::CloseHandle(hProcess);
+        ::CloseHandle(hThread);
+        ::DeleteFileW(scriptFile.c_str());
+    }).detach();
+
     return true;
 }
