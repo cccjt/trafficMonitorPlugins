@@ -1,9 +1,49 @@
 #include "stdafx.h"
 #include "HotkeyManager.h"
 #include <sstream>
+#include <fstream>
+#include <iomanip>
+#include <Shlwapi.h>
+
+#pragma comment(lib, "Shlwapi.lib")
 
 // 自定义窗口消息用于在窗口过程中获取对象指针
 static const UINT WM_HOTKEY_PLUGIN_NOTIFY = WM_USER + 0x100;
+
+// 获取当前 DLL 的 HINSTANCE
+static HMODULE GetCurrentModule()
+{
+    HMODULE hModule = nullptr;
+    ::GetModuleHandleExW(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCWSTR>(&GetCurrentModule),
+        &hModule);
+    return hModule;
+}
+
+// 写入调试日志到 %TEMP%\HotkeyPlugin_Debug.log
+static void DebugLog(const std::wstring& msg)
+{
+    wchar_t tempPath[MAX_PATH] = { 0 };
+    ::GetTempPathW(MAX_PATH, tempPath);
+    std::wstring logPath = std::wstring(tempPath) + L"HotkeyPlugin_Debug.log";
+
+    SYSTEMTIME st = { 0 };
+    ::GetLocalTime(&st);
+
+    std::wofstream fs(logPath, std::ios::app);
+    if (!fs.is_open()) return;
+
+    fs << L"[" << std::setfill(L'0')
+       << std::setw(4) << st.wYear << L"-"
+       << std::setw(2) << st.wMonth << L"-"
+       << std::setw(2) << st.wDay << L" "
+       << std::setw(2) << st.wHour << L":"
+       << std::setw(2) << st.wMinute << L":"
+       << std::setw(2) << st.wSecond << L"."
+       << std::setw(3) << st.wMilliseconds << L"] "
+       << msg << std::endl;
+}
 
 HotkeyManager::HotkeyManager() {}
 HotkeyManager::~HotkeyManager()
@@ -15,6 +55,9 @@ bool HotkeyManager::Initialize()
 {
     if (m_hWnd != nullptr) return true;
 
+    HMODULE hModule = GetCurrentModule();
+    DebugLog(L"Initialize: hModule=" + std::to_wstring(reinterpret_cast<size_t>(hModule)));
+
     // 生成唯一类名
     std::wostringstream oss;
     oss << L"HotkeyManagerWnd_" << reinterpret_cast<size_t>(this);
@@ -23,26 +66,42 @@ bool HotkeyManager::Initialize()
     WNDCLASSEXW wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEXW);
     wc.lpfnWndProc = &HotkeyManager::WndProc;
-    wc.hInstance = ::GetModuleHandleW(nullptr);
+    wc.hInstance = hModule;
     wc.lpszClassName = m_className.c_str();
 
     if (!::RegisterClassExW(&wc))
     {
         DWORD err = ::GetLastError();
+        DebugLog(L"RegisterClassExW failed, err=" + std::to_wstring(err));
         if (err != ERROR_CLASS_ALREADY_EXISTS) return false;
+    }
+    else
+    {
+        DebugLog(L"RegisterClassExW ok, class=" + m_className);
     }
 
     // 创建消息窗口(message-only window)
     m_hWnd = ::CreateWindowExW(
         0, m_className.c_str(), L"HotkeyManager",
         0, 0, 0, 0, 0,
-        HWND_MESSAGE, nullptr, ::GetModuleHandleW(nullptr), this);
+        HWND_MESSAGE, nullptr, hModule, this);
+
+    if (m_hWnd == nullptr)
+    {
+        DWORD err = ::GetLastError();
+        DebugLog(L"CreateWindowExW failed, err=" + std::to_wstring(err));
+    }
+    else
+    {
+        DebugLog(L"CreateWindowExW ok, hWnd=" + std::to_wstring(reinterpret_cast<size_t>(m_hWnd)));
+    }
 
     return m_hWnd != nullptr;
 }
 
 void HotkeyManager::Destroy()
 {
+    HMODULE hModule = GetCurrentModule();
     UnregisterAll();
     if (m_hWnd != nullptr)
     {
@@ -51,7 +110,7 @@ void HotkeyManager::Destroy()
     }
     if (!m_className.empty())
     {
-        ::UnregisterClassW(m_className.c_str(), ::GetModuleHandleW(nullptr));
+        ::UnregisterClassW(m_className.c_str(), hModule);
         m_className.clear();
     }
 }
@@ -74,6 +133,7 @@ LRESULT CALLBACK HotkeyManager::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 
     if (message == WM_HOTKEY)
     {
+        DebugLog(L"WndProc WM_HOTKEY id=" + std::to_wstring(static_cast<int>(wParam)));
         self->OnHotKey(static_cast<int>(wParam));
         return 0;
     }
@@ -88,23 +148,40 @@ std::vector<size_t> HotkeyManager::RegisterAll(const std::vector<HotkeyConfigIte
 
     if (m_hWnd == nullptr)
     {
-        // 窗口未初始化,全部失败
+        DebugLog(L"RegisterAll: window not initialized, count=" + std::to_wstring(items.size()));
         for (size_t i = 0; i < items.size(); ++i) failed.push_back(i);
         return failed;
     }
 
+    DebugLog(L"RegisterAll: item count=" + std::to_wstring(items.size()));
     for (size_t i = 0; i < items.size(); ++i)
     {
         const HotkeyConfigItem& item = items[i];
-        if (!item.enabled || !item.IsValid()) continue;
+        if (!item.enabled)
+        {
+            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: disabled");
+            continue;
+        }
+        if (!item.IsValid())
+        {
+            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: invalid (mod="
+                + std::to_wstring(item.modifiers) + L" vk=" + std::to_wstring(item.vk) + L")");
+            continue;
+        }
 
         int id = m_nextId++;
-        if (::RegisterHotKey(m_hWnd, id, item.modifiers, item.vk))
+        BOOL ok = ::RegisterHotKey(m_hWnd, id, item.modifiers, item.vk);
+        if (ok)
         {
+            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: ok id=" + std::to_wstring(id)
+                + L" mod=" + std::to_wstring(item.modifiers) + L" vk=" + std::to_wstring(item.vk));
             m_registered[id] = item;
         }
         else
         {
+            DWORD err = ::GetLastError();
+            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: FAILED err=" + std::to_wstring(err)
+                + L" mod=" + std::to_wstring(item.modifiers) + L" vk=" + std::to_wstring(item.vk));
             failed.push_back(i);
         }
     }
@@ -126,15 +203,23 @@ void HotkeyManager::UnregisterAll()
 void HotkeyManager::OnHotKey(int id)
 {
     auto it = m_registered.find(id);
-    if (it == m_registered.end()) return;
+    if (it == m_registered.end())
+    {
+        DebugLog(L"OnHotKey: id " + std::to_wstring(id) + L" not found");
+        return;
+    }
 
     const HotkeyConfigItem& item = it->second;
+    DebugLog(L"OnHotKey: id=" + std::to_wstring(id) + L" script=" + item.scriptCode.substr(0, 40));
+
     bool success = ExecuteScript(item.scriptCode);
 
     // 仅记录脚本代码的前缀用于调试/状态查询
     m_lastScript = item.scriptCode.substr(0, 80);
     m_lastSuccess = success;
     ::GetLocalTime(&m_lastTime);
+
+    DebugLog(L"OnHotKey: ExecuteScript returned " + std::wstring(success ? L"true" : L"false"));
 }
 
 // 将宽字符串按 UTF-16 LE 字节数组进行 Base64 编码(PowerShell -EncodedCommand 需要)
@@ -163,18 +248,50 @@ static std::wstring Base64EncodeWString(const std::wstring& str)
     return result;
 }
 
+// 查找可用的 PowerShell 可执行文件
+static std::wstring FindPowerShellExe()
+{
+    wchar_t sysDir[MAX_PATH] = { 0 };
+    ::GetSystemDirectoryW(sysDir, MAX_PATH);
+    std::wstring psPath = std::wstring(sysDir) + L"\\WindowsPowerShell\\v1.0\\powershell.exe";
+    if (::PathFileExistsW(psPath.c_str())) return psPath;
+
+    psPath = std::wstring(sysDir) + L"\\powershell.exe";
+    if (::PathFileExistsW(psPath.c_str())) return psPath;
+
+    wchar_t pathEnv[32768] = { 0 };
+    if (::GetEnvironmentVariableW(L"PATH", pathEnv, 32768) > 0)
+    {
+        std::wistringstream iss(pathEnv);
+        std::wstring dir;
+        while (std::getline(iss, dir, L';'))
+        {
+            if (dir.empty()) continue;
+            if (dir.back() != L'\\' && dir.back() != L'/') dir += L'\\';
+            std::wstring candidate = dir + L"powershell.exe";
+            if (::PathFileExistsW(candidate.c_str())) return candidate;
+            candidate = dir + L"pwsh.exe";
+            if (::PathFileExistsW(candidate.c_str())) return candidate;
+        }
+    }
+
+    // 最后尝试直接调用,依赖 PATH
+    return L"powershell.exe";
+}
+
 bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
 {
     if (scriptCode.empty()) return false;
 
     std::wstring encoded = Base64EncodeWString(scriptCode);
+    std::wstring psExe = FindPowerShellExe();
 
-    // 构造命令行:powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand <base64>
+    // 构造命令行:<powershell> -ExecutionPolicy Bypass -NoProfile -EncodedCommand <base64>
     std::wostringstream cmd;
-    cmd << L"powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand "
-        << encoded;
+    cmd << L"\"" << psExe << L"\" -ExecutionPolicy Bypass -NoProfile -EncodedCommand " << encoded;
 
     std::wstring cmdLine = cmd.str();
+    DebugLog(L"ExecuteScript: exe=" + psExe + L" cmdLen=" + std::to_wstring(cmdLine.size()));
 
     STARTUPINFOW si = { 0 };
     si.cb = sizeof(STARTUPINFOW);
@@ -186,15 +303,21 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
     buf.push_back(0);
 
     BOOL ok = ::CreateProcessW(
-        nullptr,
+        psExe.c_str(),
         buf.data(),
         nullptr, nullptr, FALSE,
         CREATE_NO_WINDOW,
         nullptr, nullptr,
         &si, &pi);
 
-    if (!ok) return false;
+    if (!ok)
+    {
+        DWORD err = ::GetLastError();
+        DebugLog(L"ExecuteScript: CreateProcess failed err=" + std::to_wstring(err));
+        return false;
+    }
 
+    DebugLog(L"ExecuteScript: CreateProcess ok pid=" + std::to_wstring(pi.dwProcessId));
     ::CloseHandle(pi.hThread);
     ::CloseHandle(pi.hProcess);
     return true;
