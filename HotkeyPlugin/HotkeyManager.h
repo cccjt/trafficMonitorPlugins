@@ -5,9 +5,6 @@
 #include <map>
 #include "HotkeyConfig.h"
 
-// 热键执行结果回调(用于通知主插件类更新显示)
-typedef void (*HotkeyExecutedCallback)(const std::wstring& scriptPath, bool success, void* userData);
-
 // 热键管理器:负责注册全局热键、接收消息、执行 PowerShell 脚本
 class HotkeyManager
 {
@@ -28,9 +25,6 @@ public:
     // 注销所有热键
     void UnregisterAll();
 
-    // 设置脚本执行回调
-    void SetCallback(HotkeyExecutedCallback cb, void* userData);
-
     // 获取最后执行的脚本路径
     const std::wstring& GetLastScript() const { return m_lastScript; }
 
@@ -50,14 +44,8 @@ private:
     // 处理 WM_HOTKEY 消息
     void OnHotKey(int id);
 
-    // 执行 PowerShell 脚本
-    bool ExecuteScript(const std::wstring& scriptPath);
-
-    // 获取脚本绝对路径(支持相对路径,相对于插件目录)
-    std::wstring ResolveScriptPath(const std::wstring& scriptPath) const;
-
-    // 获取插件 DLL 所在目录
-    static std::wstring GetPluginDir();
+    // 执行 PowerShell 脚本代码
+    bool ExecuteScript(const std::wstring& scriptCode);
 
 private:
     HWND m_hWnd = nullptr;                              // 隐藏消息窗口句柄
@@ -65,10 +53,7 @@ private:
     std::map<int, HotkeyConfigItem> m_registered;       // 已注册的热键 id -> 配置
     int m_nextId = 0xC000;                              // 下一个热键 ID(从 0xC000 开始,避免冲突)
 
-    HotkeyExecutedCallback m_callback = nullptr;        // 执行回调
-    void* m_callbackUserData = nullptr;                 // 回调用户数据
-
-    std::wstring m_lastScript;                          // 最后执行的脚本路径
+    std::wstring m_lastScript;                          // 最后执行的脚本代码前缀
     bool m_lastSuccess = false;                         // 最后执行是否成功
     SYSTEMTIME m_lastTime = { 0 };                      // 最后执行时间
 };

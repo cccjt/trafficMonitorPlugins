@@ -7,7 +7,7 @@ struct HotkeyConfigItem
 {
     UINT modifiers = 0;         // MOD_CONTROL/MOD_ALT/MOD_SHIFT/MOD_WIN 组合
     UINT vk = 0;                // 虚拟键码
-    std::wstring scriptPath;    // PowerShell 脚本路径
+    std::wstring scriptCode;    // PowerShell 脚本代码
     std::wstring description;   // 描述
     bool enabled = true;        // 是否启用
 

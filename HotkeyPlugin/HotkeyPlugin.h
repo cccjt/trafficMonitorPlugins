@@ -15,6 +15,7 @@ public:
     // ITMPlugin 接口实现
     IPluginItem* GetItem(int index) override;
     void DataRequired() override;
+    void OnInitialize(ITrafficMonitor* pApp) override;
     OptionReturn ShowOptionsDialog(void* hParent) override;
     const wchar_t* GetInfo(PluginInfoIndex index) override;
     const wchar_t* GetTooltipInfo() override;
@@ -37,16 +38,11 @@ private:
     HotkeyPlugin();
     ~HotkeyPlugin();
 
-    // 获取插件目录
-    std::wstring GetPluginDir() const;
-
-    // 初始化配置文件路径
-    void InitConfigPath();
-
 private:
     HotkeyConfig m_config;          // 配置
     HotkeyManager m_manager;        // 热键管理器
     HotkeyItem m_item;              // 显示项目
+    ITrafficMonitor* m_pApp = nullptr;  // 主程序接口
 
     bool m_initialized = false;     // 是否已初始化
 };

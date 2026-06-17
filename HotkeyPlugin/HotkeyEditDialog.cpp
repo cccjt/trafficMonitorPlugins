@@ -28,7 +28,6 @@ void CHotkeyEditDialog::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CHotkeyEditDialog, CDialogEx)
-    ON_BN_CLICKED(IDC_BTN_BROWSE, &CHotkeyEditDialog::OnBnClickedBrowseScript)
     ON_BN_CLICKED(IDOK, &CHotkeyEditDialog::OnBnClickedOk)
     ON_BN_CLICKED(IDCANCEL, &CHotkeyEditDialog::OnBnClickedCancel)
     ON_EN_CHANGE(IDC_EDIT_HOTKEY, &CHotkeyEditDialog::OnHotkeyChange)
@@ -39,7 +38,7 @@ BOOL CHotkeyEditDialog::OnInitDialog()
     CDialogEx::OnInitDialog();
 
     // 设置初始值
-    m_editScript.SetWindowTextW(m_result.scriptPath.c_str());
+    m_editScript.SetWindowTextW(m_result.scriptCode.c_str());
     m_editDescription.SetWindowTextW(m_result.description.c_str());
     m_chkEnabled.SetCheck(m_result.enabled ? BST_CHECKED : BST_UNCHECKED);
 
@@ -83,18 +82,6 @@ void CHotkeyEditDialog::OnHotkeyChange()
     // 实际按键捕获在 PreTranslateMessage 中处理
 }
 
-void CHotkeyEditDialog::OnBnClickedBrowseScript()
-{
-    CFileDialog dlg(TRUE, L"ps1", nullptr,
-        OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST,
-        L"PowerShell 脚本 (*.ps1)|*.ps1|所有文件 (*.*)|*.*||", this);
-
-    if (dlg.DoModal() == IDOK)
-    {
-        m_editScript.SetWindowTextW(dlg.GetPathName());
-    }
-}
-
 bool CHotkeyEditDialog::ValidateInput()
 {
     if (m_vk == 0)
@@ -103,11 +90,11 @@ bool CHotkeyEditDialog::ValidateInput()
         return false;
     }
 
-    CString scriptPath;
-    m_editScript.GetWindowTextW(scriptPath);
-    if (scriptPath.IsEmpty())
+    CString scriptCode;
+    m_editScript.GetWindowTextW(scriptCode);
+    if (scriptCode.IsEmpty())
     {
-        MessageBoxW(L"请输入或选择脚本路径", L"提示", MB_OK | MB_ICONWARNING);
+        MessageBoxW(L"请输入 PowerShell 脚本代码", L"提示", MB_OK | MB_ICONWARNING);
         return false;
     }
 
@@ -126,7 +113,7 @@ void CHotkeyEditDialog::OnBnClickedOk()
 
     CString tmp;
     m_editScript.GetWindowTextW(tmp);
-    m_result.scriptPath = tmp;
+    m_result.scriptCode = tmp;
 
     m_editDescription.GetWindowTextW(tmp);
     m_result.description = tmp;

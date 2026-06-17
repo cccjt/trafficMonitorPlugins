@@ -24,7 +24,6 @@ protected:
     virtual BOOL PreTranslateMessage(MSG* pMsg) override;
 
     // 消息映射
-    afx_msg void OnBnClickedBrowseScript();
     afx_msg void OnBnClickedOk();
     afx_msg void OnBnClickedCancel();
 

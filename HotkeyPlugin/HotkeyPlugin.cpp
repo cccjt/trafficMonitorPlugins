@@ -2,7 +2,6 @@
 #include "HotkeyPlugin.h"
 #include "OptionsDialog.h"
 #include <Windows.h>
-#include <sstream>
 
 // 导出函数
 #ifdef __cplusplus
@@ -27,11 +26,27 @@ HotkeyPlugin& HotkeyPlugin::Instance()
 HotkeyPlugin::HotkeyPlugin()
 {
     m_item.SetOwner(this);
+}
 
-    // 初始化配置路径
-    InitConfigPath();
+HotkeyPlugin::~HotkeyPlugin()
+{
+    m_manager.Destroy();
+}
 
-    // 加载配置
+void HotkeyPlugin::OnInitialize(ITrafficMonitor* pApp)
+{
+    if (m_initialized || pApp == nullptr)
+        return;
+
+    m_pApp = pApp;
+
+    // 配置文件放到 TrafficMonitor 配置目录,升级插件后数据不丢失
+    std::wstring configDir = pApp->GetPluginConfigDir();
+    if (!configDir.empty() && configDir.back() != L'\\' && configDir.back() != L'/')
+    {
+        configDir += L'\\';
+    }
+    m_config.SetConfigPath(configDir + L"HotkeyPlugin.ini");
     m_config.Load();
 
     // 初始化热键管理器
@@ -41,39 +56,6 @@ HotkeyPlugin::HotkeyPlugin()
     }
 
     m_initialized = true;
-}
-
-HotkeyPlugin::~HotkeyPlugin()
-{
-    m_manager.Destroy();
-}
-
-std::wstring HotkeyPlugin::GetPluginDir() const
-{
-    wchar_t path[MAX_PATH] = { 0 };
-    HMODULE hModule = nullptr;
-    if (::GetModuleHandleExW(
-        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-        reinterpret_cast<LPCWSTR>(&HotkeyPlugin::Instance),
-        &hModule) && hModule != nullptr)
-    {
-        ::GetModuleFileNameW(hModule, path, MAX_PATH);
-        std::wstring p(path);
-        size_t pos = p.find_last_of(L"\\/");
-        if (pos != std::wstring::npos) p = p.substr(0, pos);
-        return p;
-    }
-    return L".";
-}
-
-void HotkeyPlugin::InitConfigPath()
-{
-    std::wstring dir = GetPluginDir();
-    if (!dir.empty() && dir.back() != L'\\' && dir.back() != L'/')
-    {
-        dir += L'\\';
-    }
-    m_config.SetConfigPath(dir + L"HotkeyPlugin.ini");
 }
 
 IPluginItem* HotkeyPlugin::GetItem(int index)

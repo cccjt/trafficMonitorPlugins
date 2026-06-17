@@ -11,24 +11,6 @@ HotkeyManager::~HotkeyManager()
     Destroy();
 }
 
-std::wstring HotkeyManager::GetPluginDir()
-{
-    wchar_t path[MAX_PATH] = { 0 };
-    HMODULE hModule = nullptr;
-    if (::GetModuleHandleExW(
-        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-        reinterpret_cast<LPCWSTR>(&GetPluginDir),
-        &hModule) && hModule != nullptr)
-    {
-        ::GetModuleFileNameW(hModule, path, MAX_PATH);
-        std::wstring p(path);
-        size_t pos = p.find_last_of(L"\\/");
-        if (pos != std::wstring::npos) p = p.substr(0, pos);
-        return p;
-    }
-    return L".";
-}
-
 bool HotkeyManager::Initialize()
 {
     if (m_hWnd != nullptr) return true;
@@ -141,69 +123,56 @@ void HotkeyManager::UnregisterAll()
     m_registered.clear();
 }
 
-void HotkeyManager::SetCallback(HotkeyExecutedCallback cb, void* userData)
-{
-    m_callback = cb;
-    m_callbackUserData = userData;
-}
-
 void HotkeyManager::OnHotKey(int id)
 {
     auto it = m_registered.find(id);
     if (it == m_registered.end()) return;
 
     const HotkeyConfigItem& item = it->second;
-    bool success = ExecuteScript(item.scriptPath);
+    bool success = ExecuteScript(item.scriptCode);
 
-    m_lastScript = item.scriptPath;
+    // 仅记录脚本代码的前缀用于调试/状态查询
+    m_lastScript = item.scriptCode.substr(0, 80);
     m_lastSuccess = success;
     ::GetLocalTime(&m_lastTime);
-
-    if (m_callback)
-    {
-        m_callback(item.scriptPath, success, m_callbackUserData);
-    }
 }
 
-std::wstring HotkeyManager::ResolveScriptPath(const std::wstring& scriptPath) const
+// 将宽字符串按 UTF-16 LE 字节数组进行 Base64 编码(PowerShell -EncodedCommand 需要)
+static std::wstring Base64EncodeWString(const std::wstring& str)
 {
-    if (scriptPath.empty()) return scriptPath;
+    static const wchar_t base64Chars[] =
+        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-    // 判断是否为绝对路径
-    if (scriptPath.size() >= 2 && scriptPath[1] == L':')
-    {
-        return scriptPath;
-    }
-    if (!scriptPath.empty() && (scriptPath[0] == L'\\' || scriptPath[0] == L'/'))
-    {
-        return scriptPath;
-    }
+    const BYTE* bytes = reinterpret_cast<const BYTE*>(str.c_str());
+    size_t byteCount = str.size() * sizeof(wchar_t);
+    std::wstring result;
+    result.reserve(((byteCount + 2) / 3) * 4);
 
-    // 相对路径:基于插件目录
-    std::wstring dir = GetPluginDir();
-    if (!dir.empty() && dir.back() != L'\\' && dir.back() != L'/')
+    for (size_t i = 0; i < byteCount; i += 3)
     {
-        dir += L'\\';
+        size_t remaining = byteCount - i;
+        DWORD triple = bytes[i];
+        if (remaining > 1) triple |= (static_cast<DWORD>(bytes[i + 1]) << 8);
+        if (remaining > 2) triple |= (static_cast<DWORD>(bytes[i + 2]) << 16);
+
+        result.push_back(base64Chars[(triple >> 0) & 0x3F]);
+        result.push_back(base64Chars[(triple >> 6) & 0x3F]);
+        result.push_back(remaining > 1 ? base64Chars[(triple >> 12) & 0x3F] : L'=');
+        result.push_back(remaining > 2 ? base64Chars[(triple >> 18) & 0x3F] : L'=');
     }
-    return dir + scriptPath;
+    return result;
 }
 
-bool HotkeyManager::ExecuteScript(const std::wstring& scriptPath)
+bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
 {
-    std::wstring fullPath = ResolveScriptPath(scriptPath);
-    if (fullPath.empty()) return false;
+    if (scriptCode.empty()) return false;
 
-    // 检查文件是否存在
-    DWORD attr = ::GetFileAttributesW(fullPath.c_str());
-    if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY))
-    {
-        return false;
-    }
+    std::wstring encoded = Base64EncodeWString(scriptCode);
 
-    // 构造命令行:powershell.exe -ExecutionPolicy Bypass -NoProfile -File "<path>"
+    // 构造命令行:powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand <base64>
     std::wostringstream cmd;
-    cmd << L"powershell.exe -ExecutionPolicy Bypass -NoProfile -File \""
-        << fullPath << L"\"";
+    cmd << L"powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand "
+        << encoded;
 
     std::wstring cmdLine = cmd.str();
 
@@ -213,7 +182,6 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptPath)
     si.wShowWindow = SW_HIDE;
     PROCESS_INFORMATION pi = { 0 };
 
-    // CreateProcess 可能修改命令行,需要可写缓冲
     std::vector<wchar_t> buf(cmdLine.begin(), cmdLine.end());
     buf.push_back(0);
 
@@ -227,7 +195,6 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptPath)
 
     if (!ok) return false;
 
-    // 不等待脚本完成,关闭句柄立即返回(异步执行)
     ::CloseHandle(pi.hThread);
     ::CloseHandle(pi.hProcess);
     return true;

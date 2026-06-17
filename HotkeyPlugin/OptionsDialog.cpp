@@ -43,7 +43,7 @@ BOOL COptionsDialog::OnInitDialog()
 
     // 添加列
     m_list.InsertColumn(0, L"热键", LVCFMT_LEFT, 120);
-    m_list.InsertColumn(1, L"脚本路径", LVCFMT_LEFT, 280);
+    m_list.InsertColumn(1, L"脚本代码", LVCFMT_LEFT, 280);
     m_list.InsertColumn(2, L"状态", LVCFMT_CENTER, 60);
     m_list.InsertColumn(3, L"描述", LVCFMT_LEFT, 150);
 
@@ -61,8 +61,16 @@ void COptionsDialog::RefreshList()
         const HotkeyConfigItem& item = m_items[i];
         std::wstring hotkey = item.ToHotkeyString();
 
+        // 脚本代码可能包含换行,在列表中只显示第一行并截断
+        std::wstring scriptPreview = item.scriptCode;
+        size_t cr = scriptPreview.find_first_of(L"\r\n");
+        if (cr != std::wstring::npos)
+            scriptPreview = scriptPreview.substr(0, cr);
+        if (scriptPreview.size() > 60)
+            scriptPreview = scriptPreview.substr(0, 60) + L"...";
+
         int idx = m_list.InsertItem(static_cast<int>(i), hotkey.c_str());
-        m_list.SetItemText(idx, 1, item.scriptPath.c_str());
+        m_list.SetItemText(idx, 1, scriptPreview.c_str());
         m_list.SetItemText(idx, 2, item.enabled ? L"启用" : L"禁用");
         m_list.SetItemText(idx, 3, item.description.c_str());
     }

@@ -103,9 +103,11 @@ void HotkeyConfig::SetConfigPath(const std::wstring& path)
 
 std::wstring HotkeyConfig::ReadString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultVal) const
 {
-    wchar_t buf[MAX_PATH * 4] = { 0 };
-    ::GetPrivateProfileStringW(section, key, defaultVal, buf, MAX_PATH * 4, m_configPath.c_str());
-    return std::wstring(buf);
+    // 脚本代码可能较长,使用 INI API 允许的最大缓冲区
+    const DWORD bufSize = 32768;
+    std::vector<wchar_t> buf(bufSize, 0);
+    ::GetPrivateProfileStringW(section, key, defaultVal, buf.data(), bufSize, m_configPath.c_str());
+    return std::wstring(buf.data());
 }
 
 int HotkeyConfig::ReadInt(const wchar_t* section, const wchar_t* key, int defaultVal) const
@@ -140,7 +142,7 @@ bool HotkeyConfig::Load()
         HotkeyConfigItem item;
         item.modifiers = static_cast<UINT>(ReadInt(sec.c_str(), L"Modifiers", 0));
         item.vk = static_cast<UINT>(ReadInt(sec.c_str(), L"VK", 0));
-        item.scriptPath = ReadString(sec.c_str(), L"ScriptPath", L"");
+        item.scriptCode = ReadString(sec.c_str(), L"ScriptCode", L"");
         item.description = ReadString(sec.c_str(), L"Description", L"");
         item.enabled = ReadInt(sec.c_str(), L"Enabled", 1) != 0;
 
@@ -167,7 +169,7 @@ bool HotkeyConfig::Save() const
         const HotkeyConfigItem& item = m_items[i];
         WriteInt(sec.c_str(), L"Modifiers", static_cast<int>(item.modifiers));
         WriteInt(sec.c_str(), L"VK", static_cast<int>(item.vk));
-        WriteString(sec.c_str(), L"ScriptPath", item.scriptPath.c_str());
+        WriteString(sec.c_str(), L"ScriptCode", item.scriptCode.c_str());
         WriteString(sec.c_str(), L"Description", item.description.c_str());
         WriteInt(sec.c_str(), L"Enabled", item.enabled ? 1 : 0);
     }
