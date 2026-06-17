@@ -90,6 +90,9 @@ void HotkeyPlugin::DataRequired()
 
 ITMPlugin::OptionReturn HotkeyPlugin::ShowOptionsDialog(void* hParent)
 {
+    // 切换 MFC 资源模块到当前 DLL,否则无法找到对话框资源
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
     // 保存原始配置以便比较
     std::vector<HotkeyConfigItem> original = m_config.GetItems();
 
