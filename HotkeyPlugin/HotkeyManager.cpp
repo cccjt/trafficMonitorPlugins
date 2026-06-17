@@ -2,14 +2,10 @@
 #include "HotkeyManager.h"
 #include <sstream>
 #include <fstream>
-#include <iomanip>
 #include <thread>
 #include <Shlwapi.h>
 
 #pragma comment(lib, "Shlwapi.lib")
-
-// 自定义窗口消息用于在窗口过程中获取对象指针
-static const UINT WM_HOTKEY_PLUGIN_NOTIFY = WM_USER + 0x100;
 
 // 获取当前 DLL 的 HINSTANCE
 static HMODULE GetCurrentModule()
@@ -20,30 +16,6 @@ static HMODULE GetCurrentModule()
         reinterpret_cast<LPCWSTR>(&GetCurrentModule),
         &hModule);
     return hModule;
-}
-
-// 写入调试日志到 %TEMP%\HotkeyPlugin_Debug.log
-static void DebugLog(const std::wstring& msg)
-{
-    wchar_t tempPath[MAX_PATH] = { 0 };
-    ::GetTempPathW(MAX_PATH, tempPath);
-    std::wstring logPath = std::wstring(tempPath) + L"HotkeyPlugin_Debug.log";
-
-    SYSTEMTIME st = { 0 };
-    ::GetLocalTime(&st);
-
-    std::wofstream fs(logPath, std::ios::app);
-    if (!fs.is_open()) return;
-
-    fs << L"[" << std::setfill(L'0')
-       << std::setw(4) << st.wYear << L"-"
-       << std::setw(2) << st.wMonth << L"-"
-       << std::setw(2) << st.wDay << L" "
-       << std::setw(2) << st.wHour << L":"
-       << std::setw(2) << st.wMinute << L":"
-       << std::setw(2) << st.wSecond << L"."
-       << std::setw(3) << st.wMilliseconds << L"] "
-       << msg << std::endl;
 }
 
 HotkeyManager::HotkeyManager() {}
@@ -57,7 +29,6 @@ bool HotkeyManager::Initialize()
     if (m_hWnd != nullptr) return true;
 
     HMODULE hModule = GetCurrentModule();
-    DebugLog(L"Initialize: hModule=" + std::to_wstring(reinterpret_cast<size_t>(hModule)));
 
     // 生成唯一类名
     std::wostringstream oss;
@@ -72,13 +43,7 @@ bool HotkeyManager::Initialize()
 
     if (!::RegisterClassExW(&wc))
     {
-        DWORD err = ::GetLastError();
-        DebugLog(L"RegisterClassExW failed, err=" + std::to_wstring(err));
-        if (err != ERROR_CLASS_ALREADY_EXISTS) return false;
-    }
-    else
-    {
-        DebugLog(L"RegisterClassExW ok, class=" + m_className);
+        if (::GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false;
     }
 
     // 创建消息窗口(message-only window)
@@ -86,16 +51,6 @@ bool HotkeyManager::Initialize()
         0, m_className.c_str(), L"HotkeyManager",
         0, 0, 0, 0, 0,
         HWND_MESSAGE, nullptr, hModule, this);
-
-    if (m_hWnd == nullptr)
-    {
-        DWORD err = ::GetLastError();
-        DebugLog(L"CreateWindowExW failed, err=" + std::to_wstring(err));
-    }
-    else
-    {
-        DebugLog(L"CreateWindowExW ok, hWnd=" + std::to_wstring(reinterpret_cast<size_t>(m_hWnd)));
-    }
 
     return m_hWnd != nullptr;
 }
@@ -134,7 +89,6 @@ LRESULT CALLBACK HotkeyManager::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 
     if (message == WM_HOTKEY)
     {
-        DebugLog(L"WndProc WM_HOTKEY id=" + std::to_wstring(static_cast<int>(wParam)));
         self->OnHotKey(static_cast<int>(wParam));
         return 0;
     }
@@ -149,40 +103,27 @@ std::vector<size_t> HotkeyManager::RegisterAll(const std::vector<HotkeyConfigIte
 
     if (m_hWnd == nullptr)
     {
-        DebugLog(L"RegisterAll: window not initialized, count=" + std::to_wstring(items.size()));
         for (size_t i = 0; i < items.size(); ++i) failed.push_back(i);
         return failed;
     }
 
-    DebugLog(L"RegisterAll: item count=" + std::to_wstring(items.size()));
     for (size_t i = 0; i < items.size(); ++i)
     {
         const HotkeyConfigItem& item = items[i];
-        if (!item.enabled)
-        {
-            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: disabled");
-            continue;
-        }
+        if (!item.enabled) continue;
         if (!item.IsValid())
         {
-            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: invalid (mod="
-                + std::to_wstring(item.modifiers) + L" vk=" + std::to_wstring(item.vk) + L")");
+            failed.push_back(i);
             continue;
         }
 
         int id = m_nextId++;
-        BOOL ok = ::RegisterHotKey(m_hWnd, id, item.modifiers, item.vk);
-        if (ok)
+        if (::RegisterHotKey(m_hWnd, id, item.modifiers, item.vk))
         {
-            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: ok id=" + std::to_wstring(id)
-                + L" mod=" + std::to_wstring(item.modifiers) + L" vk=" + std::to_wstring(item.vk));
             m_registered[id] = item;
         }
         else
         {
-            DWORD err = ::GetLastError();
-            DebugLog(L"RegisterAll[" + std::to_wstring(i) + L"]: FAILED err=" + std::to_wstring(err)
-                + L" mod=" + std::to_wstring(item.modifiers) + L" vk=" + std::to_wstring(item.vk));
             failed.push_back(i);
         }
     }
@@ -204,23 +145,14 @@ void HotkeyManager::UnregisterAll()
 void HotkeyManager::OnHotKey(int id)
 {
     auto it = m_registered.find(id);
-    if (it == m_registered.end())
-    {
-        DebugLog(L"OnHotKey: id " + std::to_wstring(id) + L" not found");
-        return;
-    }
+    if (it == m_registered.end()) return;
 
     const HotkeyConfigItem& item = it->second;
-    DebugLog(L"OnHotKey: id=" + std::to_wstring(id) + L" script=" + item.scriptCode.substr(0, 40));
-
     bool success = ExecuteScript(item.scriptCode);
 
-    // 仅记录脚本代码的前缀用于调试/状态查询
     m_lastScript = item.scriptCode.substr(0, 80);
     m_lastSuccess = success;
     ::GetLocalTime(&m_lastTime);
-
-    DebugLog(L"OnHotKey: ExecuteScript returned " + std::wstring(success ? L"true" : L"false"));
 }
 
 // 查找可用的 PowerShell 可执行文件
@@ -270,27 +202,17 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
     {
         // 将脚本代码保存为 UTF-8 with BOM,兼容性最好
         int size = ::WideCharToMultiByte(CP_UTF8, 0, scriptCode.c_str(), -1, nullptr, 0, nullptr, nullptr);
-        if (size <= 0)
-        {
-            DebugLog(L"ExecuteScript: WideCharToMultiByte failed");
-            return false;
-        }
+        if (size <= 0) return false;
         std::string utf8(size, 0);
         ::WideCharToMultiByte(CP_UTF8, 0, scriptCode.c_str(), -1, &utf8[0], size, nullptr, nullptr);
         if (!utf8.empty() && utf8.back() == '\0') utf8.pop_back();
 
         std::ofstream fs(scriptFile, std::ios::binary);
-        if (!fs.is_open())
-        {
-            DebugLog(L"ExecuteScript: failed to write temp script " + scriptFile);
-            return false;
-        }
+        if (!fs.is_open()) return false;
         const char bom[] = "\xEF\xBB\xBF";
         fs.write(bom, 3);
         fs.write(utf8.data(), utf8.size());
     }
-
-    DebugLog(L"ExecuteScript: scriptFile=" + scriptFile);
 
     // 构造命令行:<powershell> -ExecutionPolicy Bypass -NoProfile -File "temp.ps1"
     std::wostringstream cmd;
@@ -298,7 +220,6 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
         << scriptFile << L"\"";
 
     std::wstring cmdLine = cmd.str();
-    DebugLog(L"ExecuteScript: cmdLen=" + std::to_wstring(cmdLine.size()));
 
     STARTUPINFOW si = { 0 };
     si.cb = sizeof(STARTUPINFOW);
@@ -319,13 +240,9 @@ bool HotkeyManager::ExecuteScript(const std::wstring& scriptCode)
 
     if (!ok)
     {
-        DWORD err = ::GetLastError();
-        DebugLog(L"ExecuteScript: CreateProcess failed err=" + std::to_wstring(err));
         ::DeleteFileW(scriptFile.c_str());
         return false;
     }
-
-    DebugLog(L"ExecuteScript: CreateProcess ok pid=" + std::to_wstring(pi.dwProcessId));
 
     // 启动一个后台线程,等进程结束后删除临时脚本文件
     HANDLE hProcess = pi.hProcess;
