@@ -39,9 +39,10 @@ jobs:
       shell: cmd
       run: |
         msbuild HotkeyPlugin.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal > build.log 2>&1
+        set BUILD_STATUS=%errorlevel%
         type build.log
-        findstr /R /C:": error " build.log
-        exit /b %errorlevel%
+        findstr /R /C:": error " build.log || rem
+        exit /b %BUILD_STATUS%
 
     - name: Upload build log on failure
       if: always()
