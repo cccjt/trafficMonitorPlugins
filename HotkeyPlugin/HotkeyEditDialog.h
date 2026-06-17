@@ -1,5 +1,6 @@
 #pragma once
 #include <afxdialogex.h>
+#include "resource.h"
 #include "HotkeyConfig.h"
 
 // 单条热键编辑对话框
