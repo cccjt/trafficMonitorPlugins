@@ -38,14 +38,27 @@ jobs:
     - name: Build Release x64
       shell: cmd
       run: |
-        msbuild HotkeyPlugin.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+        msbuild HotkeyPlugin.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal > build.log 2>&1
+        type build.log
+        findstr /R /C:": error " build.log
+        exit /b %errorlevel%
+
+    - name: Upload build log on failure
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: build.log
+        if-no-files-found: warn
 
     - name: List build output
+      if: success()
       shell: powershell
       run: |
         Get-ChildItem -Path . -Recurse -Filter "HotkeyPlugin.dll" | Format-List FullName, Length
 
     - name: Upload artifact
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: HotkeyPlugin-x64
