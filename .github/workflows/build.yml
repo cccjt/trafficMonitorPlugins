@@ -1,0 +1,60 @@
+name: Build HotkeyPlugin
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'HotkeyPlugin/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup Visual Studio
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        sdk: 10.0.19041.0
+
+    - name: Show environment
+      shell: cmd
+      run: |
+        echo === VSINSTALLDIR ===
+        echo "%VSINSTALLDIR%"
+        echo === VCToolsInstallDir ===
+        echo "%VCToolsInstallDir%"
+
+    - name: Build Release x64
+      shell: cmd
+      run: |
+        msbuild HotkeyPlugin.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+
+    - name: List build output
+      shell: powershell
+      run: |
+        Get-ChildItem -Path . -Recurse -Filter "HotkeyPlugin.dll" | Format-List FullName, Length
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: HotkeyPlugin-x64
+        path: x64\Release\HotkeyPlugin.dll
+        if-no-files-found: error
+
+    - name: Upload example script
+      uses: actions/upload-artifact@v4
+      with:
+        name: HotkeyPlugin-x64
+        path: HotkeyPlugin\example_script.ps1
+        if-no-files-found: warn
