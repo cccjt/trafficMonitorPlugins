@@ -4,7 +4,7 @@
 #include <afxdialogex.h>
 #include <Windows.h>
 
-CHotkeyEditDialog::CHotkeyEditDialog(const HotkeyItem& item, CWnd* pParent /*=nullptr*/)
+CHotkeyEditDialog::CHotkeyEditDialog(const HotkeyConfigItem& item, CWnd* pParent /*=nullptr*/)
     : CDialogEx(IDD, pParent)
     , m_result(item)
     , m_modifiers(item.modifiers)

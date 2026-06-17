@@ -56,7 +56,7 @@ void COptionsDialog::RefreshList()
 
     for (size_t i = 0; i < m_items.size(); ++i)
     {
-        const HotkeyItem& item = m_items[i];
+        const HotkeyConfigItem& item = m_items[i];
         std::wstring hotkey = item.ToHotkeyString();
 
         int idx = m_list.InsertItem(static_cast<int>(i), hotkey.c_str());
@@ -75,7 +75,7 @@ int COptionsDialog::GetSelectedIndex() const
 
 void COptionsDialog::OnBnClickedAdd()
 {
-    HotkeyItem newItem;
+    HotkeyConfigItem newItem;
     newItem.enabled = true;
 
     CHotkeyEditDialog dlg(newItem, this);

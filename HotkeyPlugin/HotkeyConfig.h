@@ -3,7 +3,7 @@
 #include <vector>
 
 // 单条热键配置项
-struct HotkeyItem
+struct HotkeyConfigItem
 {
     UINT modifiers = 0;         // MOD_CONTROL/MOD_ALT/MOD_SHIFT/MOD_WIN 组合
     UINT vk = 0;                // 虚拟键码
@@ -38,20 +38,20 @@ public:
     bool Save() const;
 
     // 获取热键列表
-    const std::vector<HotkeyItem>& GetItems() const { return m_items; }
-    std::vector<HotkeyItem>& GetItems() { return m_items; }
+    const std::vector<HotkeyConfigItem>& GetItems() const { return m_items; }
+    std::vector<HotkeyConfigItem>& GetItems() { return m_items; }
 
     // 添加/删除/修改
-    void AddItem(const HotkeyItem& item);
+    void AddItem(const HotkeyConfigItem& item);
     void RemoveItem(size_t index);
-    void UpdateItem(size_t index, const HotkeyItem& item);
+    void UpdateItem(size_t index, const HotkeyConfigItem& item);
 
     // 统计信息
     int GetEnabledCount() const;
 
 private:
-    std::wstring m_configPath;          // 配置文件完整路径
-    std::vector<HotkeyItem> m_items;    // 热键列表
+    std::wstring m_configPath;                  // 配置文件完整路径
+    std::vector<HotkeyConfigItem> m_items;      // 热键列表
 
     // INI 读写辅助
     std::wstring ReadString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultVal) const;

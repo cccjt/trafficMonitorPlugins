@@ -9,11 +9,11 @@ class CHotkeyEditDialog : public CDialogEx
     DECLARE_DYNAMIC(CHotkeyEditDialog)
 
 public:
-    CHotkeyEditDialog(const HotkeyItem& item, CWnd* pParent = nullptr);
+    CHotkeyEditDialog(const HotkeyConfigItem& item, CWnd* pParent = nullptr);
     virtual ~CHotkeyEditDialog();
 
     // 获取编辑后的结果
-    const HotkeyItem& GetResult() const { return m_result; }
+    const HotkeyConfigItem& GetResult() const { return m_result; }
 
     // 对话框 ID
     enum { IDD = IDD_HOTKEY_EDIT_DIALOG };
@@ -41,7 +41,7 @@ private:
     bool ValidateInput();
 
 private:
-    HotkeyItem m_result;         // 编辑结果
+    HotkeyConfigItem m_result;       // 编辑结果
     UINT m_modifiers;            // 当前修饰键
     UINT m_vk;                   // 当前虚拟键码
 

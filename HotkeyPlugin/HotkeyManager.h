@@ -23,7 +23,7 @@ public:
 
     // 根据配置注册所有热键
     // 返回失败的索引列表(用于提示用户冲突)
-    std::vector<size_t> RegisterAll(const std::vector<HotkeyItem>& items);
+    std::vector<size_t> RegisterAll(const std::vector<HotkeyConfigItem>& items);
 
     // 注销所有热键
     void UnregisterAll();
@@ -62,7 +62,7 @@ private:
 private:
     HWND m_hWnd = nullptr;                              // 隐藏消息窗口句柄
     std::wstring m_className;                           // 窗口类名
-    std::map<int, HotkeyItem> m_registered;             // 已注册的热键 id -> 配置
+    std::map<int, HotkeyConfigItem> m_registered;       // 已注册的热键 id -> 配置
     int m_nextId = 0xC000;                              // 下一个热键 ID(从 0xC000 开始,避免冲突)
 
     HotkeyExecutedCallback m_callback = nullptr;        // 执行回调

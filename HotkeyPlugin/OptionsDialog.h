@@ -39,8 +39,8 @@ private:
     int GetSelectedIndex() const;
 
 private:
-    HotkeyConfig& m_config;             // 配置引用(由调用方持有)
-    std::vector<HotkeyItem> m_items;    // 本地编辑副本
+    HotkeyConfig& m_config;                 // 配置引用(由调用方持有)
+    std::vector<HotkeyConfigItem> m_items;  // 本地编辑副本
 
     // 控件
     CListCtrl m_list;

@@ -58,7 +58,7 @@ static UINT StringToVk(const std::wstring& str)
     return 0;
 }
 
-std::wstring HotkeyItem::ToHotkeyString() const
+std::wstring HotkeyConfigItem::ToHotkeyString() const
 {
     std::wostringstream oss;
     if (modifiers & MOD_CONTROL) oss << L"Ctrl+";
@@ -69,7 +69,7 @@ std::wstring HotkeyItem::ToHotkeyString() const
     return oss.str();
 }
 
-bool HotkeyItem::ParseHotkeyString(const std::wstring& str, UINT& modifiers, UINT& vk)
+bool HotkeyConfigItem::ParseHotkeyString(const std::wstring& str, UINT& modifiers, UINT& vk)
 {
     modifiers = 0;
     vk = 0;
@@ -137,7 +137,7 @@ bool HotkeyConfig::Load()
         section << L"Item" << i;
         std::wstring sec = section.str();
 
-        HotkeyItem item;
+        HotkeyConfigItem item;
         item.modifiers = static_cast<UINT>(ReadInt(sec.c_str(), L"Modifiers", 0));
         item.vk = static_cast<UINT>(ReadInt(sec.c_str(), L"VK", 0));
         item.scriptPath = ReadString(sec.c_str(), L"ScriptPath", L"");
@@ -164,7 +164,7 @@ bool HotkeyConfig::Save() const
         section << L"Item" << i;
         std::wstring sec = section.str();
 
-        const HotkeyItem& item = m_items[i];
+        const HotkeyConfigItem& item = m_items[i];
         WriteInt(sec.c_str(), L"Modifiers", static_cast<int>(item.modifiers));
         WriteInt(sec.c_str(), L"VK", static_cast<int>(item.vk));
         WriteString(sec.c_str(), L"ScriptPath", item.scriptPath.c_str());
@@ -174,7 +174,7 @@ bool HotkeyConfig::Save() const
     return true;
 }
 
-void HotkeyConfig::AddItem(const HotkeyItem& item)
+void HotkeyConfig::AddItem(const HotkeyConfigItem& item)
 {
     m_items.push_back(item);
 }
@@ -187,7 +187,7 @@ void HotkeyConfig::RemoveItem(size_t index)
     }
 }
 
-void HotkeyConfig::UpdateItem(size_t index, const HotkeyItem& item)
+void HotkeyConfig::UpdateItem(size_t index, const HotkeyConfigItem& item)
 {
     if (index < m_items.size())
     {

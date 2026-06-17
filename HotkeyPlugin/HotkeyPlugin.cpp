@@ -91,7 +91,7 @@ void HotkeyPlugin::DataRequired()
 ITMPlugin::OptionReturn HotkeyPlugin::ShowOptionsDialog(void* hParent)
 {
     // 保存原始配置以便比较
-    std::vector<HotkeyItem> original = m_config.GetItems();
+    std::vector<HotkeyConfigItem> original = m_config.GetItems();
 
     CWnd* parent = hParent != nullptr ? CWnd::FromHandle(static_cast<HWND>(hParent)) : nullptr;
     COptionsDialog dlg(m_config, parent);

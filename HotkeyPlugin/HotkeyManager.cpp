@@ -99,7 +99,7 @@ LRESULT CALLBACK HotkeyManager::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
     return ::DefWindowProcW(hWnd, message, wParam, lParam);
 }
 
-std::vector<size_t> HotkeyManager::RegisterAll(const std::vector<HotkeyItem>& items)
+std::vector<size_t> HotkeyManager::RegisterAll(const std::vector<HotkeyConfigItem>& items)
 {
     UnregisterAll();
     std::vector<size_t> failed;
@@ -113,7 +113,7 @@ std::vector<size_t> HotkeyManager::RegisterAll(const std::vector<HotkeyItem>& it
 
     for (size_t i = 0; i < items.size(); ++i)
     {
-        const HotkeyItem& item = items[i];
+        const HotkeyConfigItem& item = items[i];
         if (!item.enabled || !item.IsValid()) continue;
 
         int id = m_nextId++;
@@ -152,7 +152,7 @@ void HotkeyManager::OnHotKey(int id)
     auto it = m_registered.find(id);
     if (it == m_registered.end()) return;
 
-    const HotkeyItem& item = it->second;
+    const HotkeyConfigItem& item = it->second;
     bool success = ExecuteScript(item.scriptPath);
 
     m_lastScript = item.scriptPath;
