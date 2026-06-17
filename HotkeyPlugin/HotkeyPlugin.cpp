@@ -93,7 +93,8 @@ ITMPlugin::OptionReturn HotkeyPlugin::ShowOptionsDialog(void* hParent)
     // 保存原始配置以便比较
     std::vector<HotkeyItem> original = m_config.GetItems();
 
-    COptionsDialog dlg(m_config, static_cast<HWND>(hParent));
+    CWnd* parent = hParent != nullptr ? CWnd::FromHandle(static_cast<HWND>(hParent)) : nullptr;
+    COptionsDialog dlg(m_config, parent);
     INT_PTR result = dlg.DoModal();
 
     if (result == IDOK)

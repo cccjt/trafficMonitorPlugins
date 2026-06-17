@@ -9,7 +9,7 @@ class HotkeyItem : public IPluginItem
 {
 public:
     HotkeyItem();
-    ~HotkeyItem() override;
+    ~HotkeyItem();
 
     // 设置所属的主插件(用于获取数据)
     void SetOwner(HotkeyPlugin* owner) { m_owner = owner; }

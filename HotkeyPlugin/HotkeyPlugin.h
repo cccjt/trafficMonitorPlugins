@@ -35,7 +35,7 @@ public:
 
 private:
     HotkeyPlugin();
-    ~HotkeyPlugin() override;
+    ~HotkeyPlugin();
 
     // 热键执行回调
     static void OnHotkeyExecuted(const std::wstring& scriptPath, bool success, void* userData);
