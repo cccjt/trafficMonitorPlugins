@@ -4,6 +4,8 @@
 #include <afxdialogex.h>
 #include <Windows.h>
 
+IMPLEMENT_DYNAMIC(CHotkeyEditDialog, CDialogEx)
+
 CHotkeyEditDialog::CHotkeyEditDialog(const HotkeyConfigItem& item, CWnd* pParent /*=nullptr*/)
     : CDialogEx(IDD, pParent)
     , m_result(item)

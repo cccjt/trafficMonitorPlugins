@@ -4,6 +4,8 @@
 #include "resource.h"
 #include <afxdialogex.h>
 
+IMPLEMENT_DYNAMIC(COptionsDialog, CDialogEx)
+
 COptionsDialog::COptionsDialog(HotkeyConfig& config, CWnd* pParent /*=nullptr*/)
     : CDialogEx(IDD, pParent)
     , m_config(config)
