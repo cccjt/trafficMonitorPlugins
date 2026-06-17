@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "HotkeyPlugin.h"
 #include "OptionsDialog.h"
 #include <Windows.h>

@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "HotkeyItem.h"
 #include "HotkeyPlugin.h"
 
