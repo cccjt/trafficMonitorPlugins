@@ -36,6 +36,11 @@ static const VkStringMap g_vkMap[] = {
     { VK_NUMPAD3, L"Num3" }, { VK_NUMPAD4, L"Num4" }, { VK_NUMPAD5, L"Num5" },
     { VK_NUMPAD6, L"Num6" }, { VK_NUMPAD7, L"Num7" }, { VK_NUMPAD8, L"Num8" },
     { VK_NUMPAD9, L"Num9" },
+    { VK_PAUSE, L"Pause" }, { VK_SNAPSHOT, L"PrintScreen" },
+    { VK_SCROLL, L"ScrollLock" }, { VK_NUMLOCK, L"NumLock" },
+    { VK_CAPITAL, L"CapsLock" }, { VK_MULTIPLY, L"Num*" },
+    { VK_ADD, L"Num+" }, { VK_SUBTRACT, L"Num-" },
+    { VK_DECIMAL, L"Num." }, { VK_DIVIDE, L"Num/" },
 };
 
 // 根据虚拟键码获取字符串
