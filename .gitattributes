@@ -1,3 +1,4 @@
 # HotkeyPlugin.rc is UTF-16 LE BOM; treat as binary so Git does not
 # normalize line endings or corrupt the encoding.
 HotkeyPlugin/HotkeyPlugin.rc binary
+LeftClickMenu/LeftClickMenu.rc binary
