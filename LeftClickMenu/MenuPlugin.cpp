@@ -75,6 +75,9 @@ void MenuPlugin::DataRequired()
 
 ITMPlugin::OptionReturn MenuPlugin::ShowOptionsDialog(void* hParent)
 {
+    // 切换 MFC 资源模块到当前 DLL,否则无法找到对话框资源
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
     COptionsDialog dlg(m_config, CWnd::FromHandle(static_cast<HWND>(hParent)));
     if (dlg.DoModal() == IDOK)
     {
