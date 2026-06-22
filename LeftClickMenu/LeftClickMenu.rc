@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// 中文(简体,中国) resources
+// 中文(简体，中国) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
@@ -41,7 +41,7 @@ END
 
 IDD_MENU_EDIT_DIALOG DIALOGEX 0, 0, 380, 240
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "编辑菜单项"
+CAPTION "编辑菜单�?
 FONT 9, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "名称:",IDC_STATIC,7,9,35,8
@@ -50,7 +50,7 @@ BEGIN
     COMBOBOX        IDC_COMBO_ICON,45,26,200,120,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "浏览(&B)...",IDC_BTN_BROWSE_ICON,250,26,50,14
     CONTROL         "",IDC_STATIC_ICON_PREVIEW,"Static",SS_BITMAP,305,26,32,14
-    CONTROL         "分隔线",IDC_CHECK_SEPARATOR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,45,48,60,10
+    CONTROL         "分隔�?,IDC_CHECK_SEPARATOR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,45,48,60,10
     CONTROL         "启用",IDC_CHECK_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,48,60,10
     LTEXT           "脚本代码:",IDC_STATIC,7,68,45,8
     EDITTEXT        IDC_EDIT_SCRIPT,45,66,328,140,ES_MULTILINE | ES_WANTRETURN | WS_VSCROLL | ES_AUTOVSCROLL
@@ -117,7 +117,7 @@ BEGIN
     "\0"
 END
 
-#endif    // 中文(简体,中国) resources
+#endif    // 中文(简体，中国) resources
 /////////////////////////////////////////////////////////////////////////////
 
 #ifndef APSTUDIO_INVOKED
