@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <string>
 #include <map>
+#include <vector>
 
 // 图标管理器:管理内置图标和从外部文件加载的图标
 class IconManager
