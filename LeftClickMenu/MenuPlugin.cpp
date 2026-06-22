@@ -59,6 +59,19 @@ void MenuPlugin::OnInitialize(ITrafficMonitor* pApp)
     m_config.SetConfigPath(configDir + L"LeftClickMenu.ini");
     m_config.Load();
 
+    // 子类化 TrafficMonitor 任务栏窗口,拦截左键点击
+    // 相比全局鼠标钩子,只影响一个窗口,性能开销极小
+    TaskbarSubclasser::Instance().SetLeftClickCallback(&MenuPlugin::TaskbarLeftClickCallback);
+    if (TaskbarSubclasser::Instance().Install())
+    {
+        m_subclassed = true;
+        Logger::Instance().Info(L"任务栏窗口子类化成功");
+    }
+    else
+    {
+        Logger::Instance().Warn(L"任务栏窗口子类化失败,左键菜单仅支持点击本插件显示项触发");
+    }
+
     m_initialized = true;
 }
 
@@ -134,4 +147,21 @@ std::wstring MenuPlugin::GetDisplayText() const
 void MenuPlugin::ShowMenuFromItem(void* hWnd, int x, int y)
 {
     m_manager.ShowPopupMenu(m_config.GetItems(), static_cast<HWND>(hWnd), x, y);
+}
+
+void MenuPlugin::ShowMenuFromTaskbar(int x, int y)
+{
+    // 子类化触发:使用任务栏窗口作为 owner
+    // 查找 TrafficMonitor 任务栏窗口
+    HWND hWnd = ::FindWindowW(L"TrafficMonitor::TaskBarDlg", nullptr);
+    if (hWnd == nullptr) hWnd = ::GetForegroundWindow();
+    if (hWnd == nullptr) hWnd = ::GetDesktopWindow();
+    m_manager.ShowPopupMenu(m_config.GetItems(), hWnd, x, y);
+}
+
+// 静态回调函数,供 TaskbarSubclasser 调用
+// 签名: void(int x, int y)
+void MenuPlugin::TaskbarLeftClickCallback(int x, int y)
+{
+    Instance().ShowMenuFromTaskbar(x, y);
 }

@@ -93,6 +93,7 @@
     <ClInclude Include="MenuItem.h" />
     <ClInclude Include="MenuManager.h" />
     <ClInclude Include="MenuPlugin.h" />
+    <ClInclude Include="TaskbarSubclasser.h" />
     <ClInclude Include="OptionsDialog.h" />
     <ClInclude Include="PluginInterface.h" />
     <ClInclude Include="resource.h" />
@@ -107,6 +108,7 @@
     <ClCompile Include="MenuItem.cpp" />
     <ClCompile Include="MenuManager.cpp" />
     <ClCompile Include="MenuPlugin.cpp" />
+    <ClCompile Include="TaskbarSubclasser.cpp" />
     <ClCompile Include="OptionsDialog.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>

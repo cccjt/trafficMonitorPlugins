@@ -4,6 +4,7 @@
 #include "MenuManager.h"
 #include "MenuItem.h"
 #include "IconManager.h"
+#include "TaskbarSubclasser.h"
 #include <string>
 
 // 主插件类:实现 ITMPlugin 接口
@@ -29,6 +30,12 @@ public:
     // 由显示项目触发的左键菜单弹出
     void ShowMenuFromItem(void* hWnd, int x, int y);
 
+    // 由任务栏子类化触发的菜单弹出(屏幕坐标)
+    void ShowMenuFromTaskbar(int x, int y);
+
+    // 静态回调函数,供 TaskbarSubclasser 调用
+    static void TaskbarLeftClickCallback(int x, int y);
+
     // 获取配置(供 MenuManager 使用)
     MenuConfig& GetConfig() { return m_config; }
     MenuManager& GetManager() { return m_manager; }
@@ -44,4 +51,5 @@ private:
     ITrafficMonitor* m_pApp = nullptr;  // 主程序接口
 
     bool m_initialized = false;     // 是否已初始化
+    bool m_subclassed = false;      // 任务栏窗口是否已子类化
 };
