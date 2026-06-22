@@ -1,0 +1,129 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// 中文(简体,中国) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_OPTIONS_DIALOG DIALOGEX 0, 0, 460, 240
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "快捷菜单插件设置"
+FONT 9, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LIST_MENU_ITEMS,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,446,180
+    PUSHBUTTON      "添加(&A)",IDC_BTN_ADD,7,210,60,18
+    PUSHBUTTON      "编辑(&E)",IDC_BTN_EDIT,72,210,60,18
+    PUSHBUTTON      "删除(&D)",IDC_BTN_DELETE,137,210,60,18
+    PUSHBUTTON      "上移(&U)",IDC_BTN_UP,202,210,60,18
+    PUSHBUTTON      "下移(&W)",IDC_BTN_DOWN,267,210,60,18
+    DEFPUSHBUTTON   "确定",IDOK,349,210,50,18
+    PUSHBUTTON      "取消",IDCANCEL,403,210,50,18
+END
+
+IDD_MENU_EDIT_DIALOG DIALOGEX 0, 0, 380, 240
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "编辑菜单项"
+FONT 9, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "名称:",IDC_STATIC,7,9,35,8
+    EDITTEXT        IDC_EDIT_NAME,45,7,328,14,ES_AUTOHSCROLL
+    LTEXT           "图标:",IDC_STATIC,7,28,35,8
+    COMBOBOX        IDC_COMBO_ICON,45,26,200,120,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "浏览(&B)...",IDC_BTN_BROWSE_ICON,250,26,50,14
+    CONTROL         "",IDC_STATIC_ICON_PREVIEW,"Static",SS_BITMAP,305,26,32,14
+    CONTROL         "分隔线",IDC_CHECK_SEPARATOR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,45,48,60,10
+    CONTROL         "启用",IDC_CHECK_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,48,60,10
+    LTEXT           "脚本代码:",IDC_STATIC,7,68,45,8
+    EDITTEXT        IDC_EDIT_SCRIPT,45,66,328,140,ES_MULTILINE | ES_WANTRETURN | WS_VSCROLL | ES_AUTOVSCROLL
+    DEFPUSHBUTTON   "确定",IDOK,269,220,50,18
+    PUSHBUTTON      "取消",IDCANCEL,323,220,50,18
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_OPTIONS_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 453
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 233
+    END
+    IDD_MENU_EDIT_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 373
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 238
+    END
+END
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// 内置图标
+IDI_ICON_SCRIPT     ICON    "res\\script.ico"
+IDI_ICON_FOLDER     ICON    "res\\folder.ico"
+IDI_ICON_PROGRAM    ICON    "res\\program.ico"
+IDI_ICON_URL        ICON    "res\\url.ico"
+IDI_ICON_SETTINGS   ICON    "res\\settings.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // 中文(简体,中国) resources
+/////////////////////////////////////////////////////////////////////////////
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
