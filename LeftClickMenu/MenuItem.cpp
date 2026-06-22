@@ -2,6 +2,7 @@
 #include "MenuItem.h"
 #include "MenuPlugin.h"
 #include "MenuConfig.h"
+#include "Logger.h"
 #include <Windows.h>
 
 MenuItem::MenuItem() {}
@@ -45,10 +46,13 @@ int MenuItem::OnMouseEvent(MouseEventType type, int x, int y, void* hWnd, int fl
     // 左键点击:弹出菜单
     if (type == MT_LCLICKED && m_owner != nullptr)
     {
+        Logger::Instance().Info(L"OnMouseEvent: 左键点击, x=" + std::to_wstring(x) + L" y=" + std::to_wstring(y));
+
         // 检查菜单是否为空
         const auto& items = m_owner->GetConfig().GetItems();
         if (items.empty())
         {
+            Logger::Instance().Warn(L"OnMouseEvent: 菜单项为空");
             ::MessageBoxW(
                 static_cast<HWND>(hWnd),
                 L"菜单项为空,请先在插件设置中添加菜单项。",

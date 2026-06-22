@@ -70,14 +70,31 @@ int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hW
     // TPM_RETURNCMD: 使 TrackPopupMenu 返回选择的命令 ID
     // TPM_LEFTALIGN | TPM_TOPALIGN: 默认对齐方式
     // TPM_NONOTIFY: 不发送 WM_COMMAND,直接返回命令 ID
+
+    // 将客户区坐标转换为屏幕坐标(TrafficMonitor 传递的是窗口客户区坐标)
+    POINT pt = { x, y };
+    ::ClientToScreen(hWnd, &pt);
+
+    // TrackPopupMenu 的著名问题:owner 窗口必须是前台窗口,否则菜单一闪即逝
+    ::SetForegroundWindow(hWnd);
+
+    Logger::Instance().Info(L"ShowPopupMenu: 显示菜单, 屏幕坐标=(" + std::to_wstring(pt.x) + L"," + std::to_wstring(pt.y) + L")");
+
     UINT cmd = ::TrackPopupMenu(
         hMenu,
         TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD | TPM_NONOTIFY,
-        x, y, 0, hWnd, nullptr);
+        pt.x, pt.y, 0, hWnd, nullptr);
+
+    // 标准修复:发送 WM_NULL 确保菜单正确关闭
+    ::PostMessage(hWnd, WM_NULL, 0, 0);
 
     ::DestroyMenu(hMenu);
 
-    if (cmd == 0) return -1;  // 用户未选择
+    if (cmd == 0)
+    {
+        Logger::Instance().Info(L"ShowPopupMenu: 用户未选择菜单项");
+        return -1;  // 用户未选择
+    }
 
     int selectedIndex = static_cast<int>(cmd) - 1;
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(items.size()))
