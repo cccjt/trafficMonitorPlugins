@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// 涓枃(绠�浣擄紝涓浗) resources
+// 中文(简体，中国) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
@@ -26,36 +26,36 @@ LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
 
 IDD_OPTIONS_DIALOG DIALOGEX 0, 0, 460, 240
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "蹇嵎鑿滃崟鎻掍欢璁剧疆"
+CAPTION "快捷菜单插件设置"
 FONT 9, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_LIST_MENU_ITEMS,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,446,180
-    PUSHBUTTON      "娣诲姞(&A)",IDC_BTN_ADD,7,210,60,18
-    PUSHBUTTON      "缂栬緫(&E)",IDC_BTN_EDIT,72,210,60,18
-    PUSHBUTTON      "鍒犻櫎(&D)",IDC_BTN_DELETE,137,210,60,18
-    PUSHBUTTON      "涓婄Щ(&U)",IDC_BTN_UP,202,210,60,18
-    PUSHBUTTON      "涓嬬Щ(&W)",IDC_BTN_DOWN,267,210,60,18
-    DEFPUSHBUTTON   "纭畾",IDOK,349,210,50,18
-    PUSHBUTTON      "鍙栨秷",IDCANCEL,403,210,50,18
+    PUSHBUTTON      "添加(&A)",IDC_BTN_ADD,7,210,60,18
+    PUSHBUTTON      "编辑(&E)",IDC_BTN_EDIT,72,210,60,18
+    PUSHBUTTON      "删除(&D)",IDC_BTN_DELETE,137,210,60,18
+    PUSHBUTTON      "上移(&U)",IDC_BTN_UP,202,210,60,18
+    PUSHBUTTON      "下移(&W)",IDC_BTN_DOWN,267,210,60,18
+    DEFPUSHBUTTON   "确定",IDOK,349,210,50,18
+    PUSHBUTTON      "取消",IDCANCEL,403,210,50,18
 END
 
 IDD_MENU_EDIT_DIALOG DIALOGEX 0, 0, 380, 240
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "缂栬緫鑿滃崟椤?
+CAPTION "编辑菜单??
 FONT 9, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "鍚嶇О:",IDC_STATIC,7,9,35,8
+    LTEXT           "名称:",IDC_STATIC,7,9,35,8
     EDITTEXT        IDC_EDIT_NAME,45,7,328,14,ES_AUTOHSCROLL
-    LTEXT           "鍥炬爣:",IDC_STATIC,7,28,35,8
+    LTEXT           "图标:",IDC_STATIC,7,28,35,8
     COMBOBOX        IDC_COMBO_ICON,45,26,200,120,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      "娴忚(&B)...",IDC_BTN_BROWSE_ICON,250,26,50,14
+    PUSHBUTTON      "浏览(&B)...",IDC_BTN_BROWSE_ICON,250,26,50,14
     CONTROL         "",IDC_STATIC_ICON_PREVIEW,"Static",SS_BITMAP,305,26,32,14
-    CONTROL         "鍒嗛殧绾?,IDC_CHECK_SEPARATOR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,45,48,60,10
-    CONTROL         "鍚敤",IDC_CHECK_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,48,60,10
-    LTEXT           "鑴氭湰浠ｇ爜:",IDC_STATIC,7,68,45,8
+    CONTROL         "分隔??,IDC_CHECK_SEPARATOR,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,45,48,60,10
+    CONTROL         "启用",IDC_CHECK_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,48,60,10
+    LTEXT           "脚本代码:",IDC_STATIC,7,68,45,8
     EDITTEXT        IDC_EDIT_SCRIPT,45,66,328,140,ES_MULTILINE | ES_WANTRETURN | WS_VSCROLL | ES_AUTOVSCROLL
-    DEFPUSHBUTTON   "纭畾",IDOK,269,220,50,18
-    PUSHBUTTON      "鍙栨秷",IDCANCEL,323,220,50,18
+    DEFPUSHBUTTON   "确定",IDOK,269,220,50,18
+    PUSHBUTTON      "取消",IDCANCEL,323,220,50,18
 END
 
 /////////////////////////////////////////////////////////////////////////////
@@ -88,7 +88,7 @@ END
 // Icon
 //
 
-// 鍐呯疆鍥炬爣
+// 内置图标
 IDI_ICON_SCRIPT     ICON    "res\\script.ico"
 IDI_ICON_FOLDER     ICON    "res\\folder.ico"
 IDI_ICON_PROGRAM    ICON    "res\\program.ico"
@@ -117,7 +117,7 @@ BEGIN
     "\0"
 END
 
-#endif    // 涓枃(绠�浣擄紝涓浗) resources
+#endif    // 中文(简体，中国) resources
 /////////////////////////////////////////////////////////////////////////////
 
 #ifndef APSTUDIO_INVOKED
