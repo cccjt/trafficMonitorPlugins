@@ -371,7 +371,7 @@ void PinWindow::ShowContextMenu(int x, int y)
     // 必须设置窗口为前景,否则菜单不消失
     ::SetForegroundWindow(m_hWnd);
 
-    int cmd = ::TrackPopupMenuW(hSubMenu,
+    int cmd = ::TrackPopupMenu(hSubMenu,
         TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
         pt.x, pt.y, 0, m_hWnd, nullptr);
 

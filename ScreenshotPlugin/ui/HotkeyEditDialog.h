@@ -1,4 +1,5 @@
-﻿#pragma once
+#pragma once
+#include "../res/resource.h"
 #include "../config/ActionType.h"
 
 // 热键编辑对话框

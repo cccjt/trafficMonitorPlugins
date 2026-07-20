@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 #include <map>
+#include "../res/resource.h"
 #include "../core/ScreenshotPlugin.h"
 #include "../config/ActionType.h"
 

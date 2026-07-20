@@ -1,4 +1,5 @@
-﻿#pragma once
+#pragma once
+#include "../res/resource.h"
 #include "../config/ScreenshotConfig.h"
 
 // 百度翻译配置对话框
