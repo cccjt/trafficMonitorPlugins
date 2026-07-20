@@ -64,3 +64,6 @@ Desktop.ini
 
 # Trae IDE
 .trae/
+
+# JetBrains IDE
+.idea/

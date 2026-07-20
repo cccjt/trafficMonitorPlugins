@@ -2,10 +2,10 @@
 #pragma once
 
 #define _CRT_SECURE_NO_WARNINGS
-#define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 
 // MFC
+// 注意: 不定义 WIN32_LEAN_AND_MEAN,否则会排除 TrackPopupMenu 等API
 #ifndef VC_EXTRALEAN
 #define VC_EXTRALEAN
 #endif
@@ -15,6 +15,7 @@
 #include <afxdtctl.h>       // MFC IE 公共控件支持
 #include <afxcmn.h>         // MFC 公共控件支持
 #include <afxdlgs.h>        // MFC 对话框
+#include <afxdialogex.h>    // CDialogEx (扩展对话框基类)
 
 #include <Windows.h>
 #include <objbase.h>
