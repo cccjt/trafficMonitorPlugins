@@ -7,6 +7,7 @@ on:
       - 'HotkeyPlugin.sln'
       - 'HotkeyPlugin/**'
       - 'LeftClickMenu/**'
+      - 'ScreenshotPlugin/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches: [ main, master ]
@@ -76,4 +77,13 @@ jobs:
         name: LeftClickMenu-x64
         path: |
           x64\Release\LeftClickMenu.dll
+        if-no-files-found: warn
+
+    - name: Upload ScreenshotPlugin artifact
+      if: success()
+      uses: actions/upload-artifact@v7
+      with:
+        name: ScreenshotPlugin-x64
+        path: |
+          x64\Release\ScreenshotPlugin.dll
         if-no-files-found: warn

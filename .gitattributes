@@ -2,3 +2,4 @@
 # normalize line endings or corrupt the encoding.
 HotkeyPlugin/HotkeyPlugin.rc binary
 LeftClickMenu/LeftClickMenu.rc binary
+ScreenshotPlugin/res/ScreenshotPlugin.rc binary

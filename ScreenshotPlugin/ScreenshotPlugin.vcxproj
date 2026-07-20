@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{B7D8E9F0-1A2B-4C3D-9E5F-6A7B8C9D0E1F}</ProjectGuid>
+    <Keyword>MFCDLLProj</Keyword>
+    <RootNamespace>ScreenshotPlugin</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;SCREENSHOTPLUGIN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>../pch/stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)res;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="core\PluginInterface.h" />
+    <ClInclude Include="core\ScreenshotCore.h" />
+    <ClInclude Include="core\ScreenshotItem.h" />
+    <ClInclude Include="core\ScreenshotPlugin.h" />
+    <ClInclude Include="config\ActionType.h" />
+    <ClInclude Include="config\HotkeyManager.h" />
+    <ClInclude Include="config\Md5Helper.h" />
+    <ClInclude Include="config\ScreenshotConfig.h" />
+    <ClInclude Include="capture\GdiPlusHelper.h" />
+    <ClInclude Include="capture\ScreenCapture.h" />
+    <ClInclude Include="ui\BaiduConfigDialog.h" />
+    <ClInclude Include="ui\HotkeyEditDialog.h" />
+    <ClInclude Include="ui\MagnifierWnd.h" />
+    <ClInclude Include="ui\OptionsDialog.h" />
+    <ClInclude Include="ui\PinWindow.h" />
+    <ClInclude Include="ui\SelectionOverlay.h" />
+    <ClInclude Include="ui\SelectionToolbar.h" />
+    <ClInclude Include="services\BaiduTranslator.h" />
+    <ClInclude Include="services\OcrEngine.h" />
+    <ClInclude Include="services\QrCodeDecoder.h" />
+    <ClInclude Include="res\resource.h" />
+    <ClInclude Include="pch\stdafx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="core\dllmain.cpp" />
+    <ClCompile Include="core\ScreenshotCore.cpp" />
+    <ClCompile Include="core\ScreenshotItem.cpp" />
+    <ClCompile Include="core\ScreenshotPlugin.cpp" />
+    <ClCompile Include="config\ActionType.cpp" />
+    <ClCompile Include="config\HotkeyManager.cpp" />
+    <ClCompile Include="config\Md5Helper.cpp" />
+    <ClCompile Include="config\ScreenshotConfig.cpp" />
+    <ClCompile Include="capture\GdiPlusHelper.cpp" />
+    <ClCompile Include="capture\ScreenCapture.cpp" />
+    <ClCompile Include="ui\BaiduConfigDialog.cpp" />
+    <ClCompile Include="ui\HotkeyEditDialog.cpp" />
+    <ClCompile Include="ui\MagnifierWnd.cpp" />
+    <ClCompile Include="ui\OptionsDialog.cpp" />
+    <ClCompile Include="ui\PinWindow.cpp" />
+    <ClCompile Include="ui\SelectionOverlay.cpp" />
+    <ClCompile Include="ui\SelectionToolbar.cpp" />
+    <ClCompile Include="services\BaiduTranslator.cpp" />
+    <ClCompile Include="services\OcrEngine.cpp" />
+    <ClCompile Include="services\QrCodeDecoder.cpp" />
+    <ClCompile Include="pch\stdafx.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="res\ScreenshotPlugin.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>
