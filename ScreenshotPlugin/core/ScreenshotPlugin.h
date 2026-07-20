@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "PluginInterface.h"
 #include "../config/ScreenshotConfig.h"
 #include "../config/HotkeyManager.h"
@@ -49,7 +49,7 @@ public:
 
 private:
     ScreenshotPlugin();
-    ~ScreenshotPlugin() override;
+    ~ScreenshotPlugin();
 
     // 计算配置文件路径(基于主程序提供的插件目录)
     void EnsureConfigPath();

@@ -1,4 +1,4 @@
-﻿#include "../pch/stdafx.h"
+#include "../pch/stdafx.h"
 #include "SelectionOverlay.h"
 #include "../capture/ScreenCapture.h"
 #include "../core/ScreenshotPlugin.h"
@@ -488,8 +488,9 @@ void SelectionOverlay::OnPaint()
         if (labelY < 0) labelY = rcSelLocal.top + 4;
 
         Gdiplus::SolidBrush labelBg(Gdiplus::Color(200, 0, 0, 0));
-        graphics.FillRectangle(&labelBg, labelX, labelY,
-            textRect.Width + 10, textRect.Height + 4);
+        graphics.FillRectangle(&labelBg,
+            static_cast<INT>(labelX), static_cast<INT>(labelY),
+            static_cast<INT>(textRect.Width + 10), static_cast<INT>(textRect.Height + 4));
 
         Gdiplus::SolidBrush labelFg(Gdiplus::Color(255, 255, 255, 255));
         Gdiplus::PointF labelPf(labelX + 5, labelY + 2);

@@ -1,4 +1,4 @@
-﻿#include "../pch/stdafx.h"
+#include "../pch/stdafx.h"
 #include "PinWindow.h"
 #include "../capture/GdiPlusHelper.h"
 #include "../core/ScreenshotCore.h"
@@ -460,21 +460,21 @@ void PinWindow::RenderToWindow()
             ? (40 + (BORDER - i) * 30)
             : (20 + (BORDER - i) * 20));
         Gdiplus::Pen pen(Gdiplus::Color(a, borderColor.GetR(), borderColor.GetG(), borderColor.GetB()),
-            static_cast<REAL>(i * 2));
+            static_cast<float>(i * 2));
         graphics.DrawRectangle(&pen,
-            static_cast<REAL>(BORDER - i),
-            static_cast<REAL>(BORDER - i),
-            static_cast<REAL>(winW - 2 * (BORDER - i) - 1),
-            static_cast<REAL>(winH - 2 * (BORDER - i) - 1));
+            static_cast<float>(BORDER - i),
+            static_cast<float>(BORDER - i),
+            static_cast<float>(winW - 2 * (BORDER - i) - 1),
+            static_cast<float>(winH - 2 * (BORDER - i) - 1));
     }
 
     // 内层实线边框
     Gdiplus::Pen innerPen(borderColor, 2.0f);
     graphics.DrawRectangle(&innerPen,
-        static_cast<REAL>(BORDER - 1),
-        static_cast<REAL>(BORDER - 1),
-        static_cast<REAL>(winW - 2 * BORDER + 1),
-        static_cast<REAL>(winH - 2 * BORDER + 1));
+        static_cast<float>(BORDER - 1),
+        static_cast<float>(BORDER - 1),
+        static_cast<float>(winW - 2 * BORDER + 1),
+        static_cast<float>(winH - 2 * BORDER + 1));
 
     // 2. 绘制图片(应用透明度)
     Gdiplus::Bitmap srcBitmap(m_hBitmap, nullptr);
