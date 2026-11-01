@@ -13,7 +13,7 @@ public:
 
     // 显示弹出菜单
     // items: 菜单项配置列表
-    // hWnd: 产生鼠标事件的窗口句柄
+    // hWnd: 菜单的 owner 窗口(用于接收菜单消息和前台状态)
     // x, y: 菜单显示位置(屏幕坐标)
     // 返回选中的菜单项索引,未选择返回 -1
     int ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hWnd, int x, int y);
@@ -22,7 +22,16 @@ public:
     // item: 菜单项配置
     bool ExecuteAction(const MenuConfigItem& item);
 
+    // 直接执行一段脚本代码(供配置对话框的"试运行"使用)
+    bool RunScript(const std::wstring& scriptCode);
+
 private:
+    // 按 DPI 计算菜单图标尺寸(96 DPI 下为 16 像素)
+    int GetIconSize(HWND hWnd) const;
+
+    // 获取菜单图标位图的背景色(跟随深浅主题)
+    COLORREF GetMenuBackgroundColor() const;
+
     // 查找可用的 PowerShell 可执行文件
     std::wstring FindPowerShellExe() const;
 

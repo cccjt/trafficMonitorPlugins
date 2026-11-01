@@ -2,7 +2,88 @@
 #include "MenuConfig.h"
 #include "Logger.h"
 #include <Windows.h>
+#include <wincrypt.h>
 #include <sstream>
+#include <vector>
+#include <cstring>
+
+#pragma comment(lib, "Crypt32.lib")
+
+namespace
+{
+const std::wstring SCRIPT_BASE64_PREFIX = L"B64:";
+
+// 脚本按 UTF-16LE 编码后转成 Base64,避免 INI 无法保存多行值
+std::wstring EncodeScript(const std::wstring& script)
+{
+    if (script.empty()) return std::wstring();
+
+    std::vector<BYTE> data(script.size() * sizeof(wchar_t));
+    memcpy(data.data(), script.data(), data.size());
+
+    DWORD base64Length = 0;
+    if (!::CryptBinaryToStringW(data.data(), static_cast<DWORD>(data.size()),
+            CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &base64Length)
+        || base64Length == 0)
+    {
+        Logger::Instance().Warn(L"MenuConfig::EncodeScript: Base64 编码失败");
+        return std::wstring();
+    }
+
+    std::vector<wchar_t> buffer(base64Length + 1, 0);
+    if (!::CryptBinaryToStringW(data.data(), static_cast<DWORD>(data.size()),
+            CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, buffer.data(), &base64Length))
+    {
+        Logger::Instance().Warn(L"MenuConfig::EncodeScript: Base64 编码失败,按明文保存");
+        return script;
+    }
+
+    std::wstring base64(buffer.data(), base64Length);
+    while (!base64.empty() && base64.back() == L'\0')
+    {
+        base64.pop_back();
+    }
+    return SCRIPT_BASE64_PREFIX + base64;
+}
+
+// 解码 Base64 脚本;没有 Base64 前缀时按旧版明文配置处理
+std::wstring DecodeScript(const std::wstring& value)
+{
+    if (value.size() <= SCRIPT_BASE64_PREFIX.size()
+        || value.compare(0, SCRIPT_BASE64_PREFIX.size(), SCRIPT_BASE64_PREFIX) != 0)
+    {
+        return value;
+    }
+
+    std::wstring base64 = value.substr(SCRIPT_BASE64_PREFIX.size());
+
+    DWORD dataSize = 0;
+    if (!::CryptStringToBinaryW(base64.c_str(), static_cast<DWORD>(base64.size()),
+            CRYPT_STRING_BASE64, nullptr, &dataSize, nullptr, nullptr)
+        || dataSize == 0)
+    {
+        Logger::Instance().Warn(L"MenuConfig::DecodeScript: Base64 解码失败,按明文处理");
+        return value;
+    }
+
+    std::vector<BYTE> data(dataSize, 0);
+    if (!::CryptStringToBinaryW(base64.c_str(), static_cast<DWORD>(base64.size()),
+            CRYPT_STRING_BASE64, data.data(), &dataSize, nullptr, nullptr))
+    {
+        Logger::Instance().Warn(L"MenuConfig::DecodeScript: Base64 解码失败,按明文处理");
+        return value;
+    }
+
+    if (dataSize % sizeof(wchar_t) != 0)
+    {
+        Logger::Instance().Warn(L"MenuConfig::DecodeScript: 脚本数据长度无效,按明文处理");
+        return value;
+    }
+
+    return std::wstring(reinterpret_cast<const wchar_t*>(data.data()),
+        dataSize / sizeof(wchar_t));
+}
+}
 
 MenuConfig::MenuConfig() {}
 MenuConfig::~MenuConfig() {}
@@ -73,7 +154,7 @@ bool MenuConfig::Load()
         item.name = ReadString(sec.c_str(), L"Name", L"");
         item.iconSource = ReadString(sec.c_str(), L"IconSource", L"");
         item.iconIndex = ReadInt(sec.c_str(), L"IconIndex", 0);
-        item.scriptCode = ReadString(sec.c_str(), L"ScriptCode", L"");
+        item.scriptCode = DecodeScript(ReadString(sec.c_str(), L"ScriptCode", L""));
         item.enabled = ReadInt(sec.c_str(), L"Enabled", 1) != 0;
         item.isSeparator = ReadInt(sec.c_str(), L"IsSeparator", 0) != 0;
 
@@ -113,7 +194,7 @@ bool MenuConfig::Save() const
         WriteString(sec.c_str(), L"Name", item.name.c_str());
         WriteString(sec.c_str(), L"IconSource", item.iconSource.c_str());
         WriteInt(sec.c_str(), L"IconIndex", item.iconIndex);
-        WriteString(sec.c_str(), L"ScriptCode", item.scriptCode.c_str());
+        WriteString(sec.c_str(), L"ScriptCode", EncodeScript(item.scriptCode).c_str());
         WriteInt(sec.c_str(), L"Enabled", item.enabled ? 1 : 0);
         WriteInt(sec.c_str(), L"IsSeparator", item.isSeparator ? 1 : 0);
     }
@@ -158,7 +239,8 @@ int MenuConfig::GetEnabledCount() const
     int count = 0;
     for (const auto& item : m_items)
     {
-        if (item.enabled) ++count;
+        // 分隔线不算作可执行的菜单项
+        if (item.enabled && !item.isSeparator) ++count;
     }
     return count;
 }

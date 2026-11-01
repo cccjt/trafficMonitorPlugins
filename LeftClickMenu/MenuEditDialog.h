@@ -26,6 +26,7 @@ protected:
     afx_msg void OnBnClickedBrowseIcon();
     afx_msg void OnBnClickedSeparator();
     afx_msg void OnCbnSelchangeIcon();
+    afx_msg void OnBnClickedTestRun();
     afx_msg void OnBnClickedOk();
     afx_msg void OnBnClickedCancel();
 
@@ -41,6 +42,9 @@ private:
     // 检查输入有效性
     bool ValidateInput();
 
+    // 读取编辑框中的图标序号
+    int GetSelectedIconIndex() const;
+
 private:
     MenuConfigItem m_result;     // 编辑结果
 
@@ -52,4 +56,6 @@ private:
     CComboBox m_comboIcon;
     CButton m_btnBrowseIcon;
     CStatic m_staticPreview;
+    CEdit m_editIconIndex;
+    CButton m_btnTestRun;
 };

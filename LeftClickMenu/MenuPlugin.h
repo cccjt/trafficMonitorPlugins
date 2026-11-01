@@ -4,7 +4,7 @@
 #include "MenuManager.h"
 #include "MenuItem.h"
 #include "IconManager.h"
-#include "TaskbarSubclasser.h"
+#include "TaskbarOverlay.h"
 #include <string>
 
 // 主插件类:实现 ITMPlugin 接口
@@ -27,14 +27,14 @@ public:
     // 获取显示文本(菜单项数量)
     std::wstring GetDisplayText() const;
 
-    // 由显示项目触发的左键菜单弹出
-    void ShowMenuFromItem(void* hWnd, int x, int y);
+    // 由显示项目触发的左键菜单弹出(屏幕坐标)
+    void ShowMenuFromItem(void* hWnd, int screenX, int screenY);
 
-    // 由任务栏子类化触发的菜单弹出(屏幕坐标)
-    void ShowMenuFromTaskbar(int x, int y);
+    // 由任务栏覆盖窗触发的菜单弹出(屏幕坐标)
+    void ShowMenuFromTaskbar(HWND hTargetWnd, int screenX, int screenY);
 
-    // 静态回调函数,供 TaskbarSubclasser 调用
-    static void TaskbarLeftClickCallback(int x, int y);
+    // 静态回调函数,供 TaskbarOverlay 调用
+    static void TaskbarLeftClickCallback(HWND hTargetWnd, int x, int y);
 
     // 获取配置(供 MenuManager 使用)
     MenuConfig& GetConfig() { return m_config; }
@@ -51,5 +51,6 @@ private:
     ITrafficMonitor* m_pApp = nullptr;  // 主程序接口
 
     bool m_initialized = false;     // 是否已初始化
-    bool m_subclassed = false;      // 任务栏窗口是否已子类化
+    bool m_overlayInstalled = false;    // 任务栏覆盖窗是否已创建
+    DWORD m_lastOverlayRetryTick = 0;   // 上次尝试创建覆盖窗的时刻
 };

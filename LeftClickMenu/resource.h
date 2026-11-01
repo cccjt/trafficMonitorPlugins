@@ -17,6 +17,8 @@
 #define IDC_COMBO_ICON                  1011
 #define IDC_BTN_BROWSE_ICON             1012
 #define IDC_STATIC_ICON_PREVIEW         1013
+#define IDC_EDIT_ICON_INDEX             1014
+#define IDC_BTN_TEST_RUN                1015
 
 // 内置图标资源 ID
 #define IDI_ICON_SCRIPT                 200
@@ -30,7 +32,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        300
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1014
+#define _APS_NEXT_CONTROL_VALUE         1016
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

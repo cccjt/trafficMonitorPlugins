@@ -8,7 +8,7 @@ struct MenuConfigItem
     std::wstring name;          // 菜单项显示名称
     std::wstring iconSource;    // 图标来源:内置名称(script/folder/program/url/settings)或文件路径
     int iconIndex = 0;          // 图标索引(文件加载时使用,默认 0)
-    std::wstring scriptCode;    // PowerShell 脚本代码(Base64 编码存储)
+    std::wstring scriptCode;    // PowerShell 脚本代码(内存中为明文,INI 中以 Base64 存储)
     bool enabled = true;        // 是否启用
     bool isSeparator = false;   // 是否为分隔线
 
@@ -44,7 +44,7 @@ public:
     void RemoveItem(size_t index);
     void UpdateItem(size_t index, const MenuConfigItem& item);
 
-    // 统计信息
+    // 统计信息(只统计启用的菜单项,不包括分隔线)
     int GetEnabledCount() const;
 
 private:

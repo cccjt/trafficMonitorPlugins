@@ -27,14 +27,18 @@ protected:
     afx_msg void OnBnClickedUp();
     afx_msg void OnBnClickedDown();
     afx_msg void OnNMDblclkList(NMHDR* pNMHDR, LRESULT* pResult);
+    afx_msg void OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult);
     afx_msg void OnBnClickedOk();
     afx_msg void OnBnClickedCancel();
 
     DECLARE_MESSAGE_MAP()
 
 private:
-    // 刷新列表显示
+    // 刷新列表显示(同时重建图标)
     void RefreshList();
+
+    // 根据选中位置更新按钮可用状态
+    void UpdateButtons();
 
     // 获取选中的索引,无选中返回 -1
     int GetSelectedIndex() const;
@@ -45,4 +49,5 @@ private:
 
     // 控件
     CListCtrl m_list;
+    CImageList m_imageList;                     // 列表中的菜单项图标
 };

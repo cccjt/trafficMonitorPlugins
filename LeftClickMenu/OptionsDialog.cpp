@@ -1,8 +1,11 @@
 #include "stdafx.h"
 #include "OptionsDialog.h"
 #include "MenuEditDialog.h"
+#include "IconManager.h"
 #include "resource.h"
 #include <afxdialogex.h>
+#include <map>
+#include <sstream>
 
 IMPLEMENT_DYNAMIC(COptionsDialog, CDialogEx)
 
@@ -31,6 +34,7 @@ BEGIN_MESSAGE_MAP(COptionsDialog, CDialogEx)
     ON_BN_CLICKED(IDC_BTN_UP, &COptionsDialog::OnBnClickedUp)
     ON_BN_CLICKED(IDC_BTN_DOWN, &COptionsDialog::OnBnClickedDown)
     ON_NOTIFY(NM_DBLCLK, IDC_LIST_MENU_ITEMS, &COptionsDialog::OnNMDblclkList)
+    ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST_MENU_ITEMS, &COptionsDialog::OnLvnItemChangedList)
     ON_BN_CLICKED(IDOK, &COptionsDialog::OnBnClickedOk)
     ON_BN_CLICKED(IDCANCEL, &COptionsDialog::OnBnClickedCancel)
 END_MESSAGE_MAP()
@@ -49,6 +53,7 @@ BOOL COptionsDialog::OnInitDialog()
     m_list.InsertColumn(3, L"状态", LVCFMT_CENTER, 60);
 
     RefreshList();
+    UpdateButtons();
 
     return TRUE;
 }
@@ -56,6 +61,21 @@ BOOL COptionsDialog::OnInitDialog()
 void COptionsDialog::RefreshList()
 {
     m_list.DeleteAllItems();
+
+    // 重建图标列表,尺寸跟随当前窗口 DPI
+    UINT dpi = ::GetDpiForWindow(m_hWnd);
+    if (dpi == 0) dpi = 96;
+    int iconSize = ::MulDiv(16, static_cast<int>(dpi), 96);
+    if (iconSize < 16) iconSize = 16;
+    if (iconSize > 32) iconSize = 32;
+
+    // 先解除列表与旧图片列表的关联,再重建图片列表
+    m_list.SetImageList(nullptr, LVSIL_SMALL);
+    m_imageList.DeleteImageList();
+    m_imageList.Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 0, 1);
+    m_list.SetImageList(&m_imageList, LVSIL_SMALL);
+
+    std::map<std::wstring, int> iconIndexMap;
 
     for (size_t i = 0; i < m_items.size(); ++i)
     {
@@ -92,7 +112,47 @@ void COptionsDialog::RefreshList()
         m_list.SetItemText(idx, 1, iconSrc);
         m_list.SetItemText(idx, 2, scriptPreview);
         m_list.SetItemText(idx, 3, status);
+
+        // 给非分隔线菜单项显示实际图标,相同图标复用同一个图片索引
+        if (!item.isSeparator && !item.iconSource.empty())
+        {
+            std::wostringstream keyStream;
+            keyStream << item.iconSource << L":" << item.iconIndex;
+            std::wstring key = keyStream.str();
+
+            int imageIndex = -1;
+            auto it = iconIndexMap.find(key);
+            if (it != iconIndexMap.end())
+            {
+                imageIndex = it->second;
+            }
+            else
+            {
+                HICON hIcon = IconManager::Instance().GetIcon(item.iconSource, item.iconIndex);
+                if (hIcon != nullptr)
+                {
+                    imageIndex = m_imageList.Add(hIcon);
+                    iconIndexMap[key] = imageIndex;
+                }
+            }
+
+            if (imageIndex >= 0)
+            {
+                m_list.SetItemImage(idx, imageIndex, 0);
+            }
+        }
     }
+}
+
+void COptionsDialog::UpdateButtons()
+{
+    int sel = GetSelectedIndex();
+    int count = static_cast<int>(m_items.size());
+
+    GetDlgItem(IDC_BTN_EDIT)->EnableWindow(sel >= 0);
+    GetDlgItem(IDC_BTN_DELETE)->EnableWindow(sel >= 0);
+    GetDlgItem(IDC_BTN_UP)->EnableWindow(sel > 0);
+    GetDlgItem(IDC_BTN_DOWN)->EnableWindow(sel >= 0 && sel < count - 1);
 }
 
 int COptionsDialog::GetSelectedIndex() const
@@ -116,6 +176,7 @@ void COptionsDialog::OnBnClickedAdd()
         int newIndex = static_cast<int>(m_items.size() - 1);
         m_list.SetItemState(newIndex, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
         m_list.EnsureVisible(newIndex, FALSE);
+        UpdateButtons();
     }
 }
 
@@ -134,6 +195,7 @@ void COptionsDialog::OnBnClickedEdit()
         m_items[sel] = dlg.GetResult();
         RefreshList();
         m_list.SetItemState(sel, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+        UpdateButtons();
     }
 }
 
@@ -151,6 +213,7 @@ void COptionsDialog::OnBnClickedDelete()
     {
         m_items.erase(m_items.begin() + sel);
         RefreshList();
+        UpdateButtons();
     }
 }
 
@@ -166,6 +229,7 @@ void COptionsDialog::OnBnClickedUp()
     std::swap(m_items[sel], m_items[sel - 1]);
     RefreshList();
     m_list.SetItemState(sel - 1, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+    UpdateButtons();
 }
 
 void COptionsDialog::OnBnClickedDown()
@@ -180,12 +244,19 @@ void COptionsDialog::OnBnClickedDown()
     std::swap(m_items[sel], m_items[sel + 1]);
     RefreshList();
     m_list.SetItemState(sel + 1, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+    UpdateButtons();
 }
 
 void COptionsDialog::OnNMDblclkList(NMHDR* pNMHDR, LRESULT* pResult)
 {
     *pResult = 0;
     OnBnClickedEdit();
+}
+
+void COptionsDialog::OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult)
+{
+    *pResult = 0;
+    UpdateButtons();
 }
 
 void COptionsDialog::OnBnClickedOk()

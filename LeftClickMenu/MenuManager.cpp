@@ -27,6 +27,10 @@ int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hW
         return -1;
     }
 
+    // 图标尺寸随 DPI 缩放,位图背景跟随深浅主题
+    const int iconSize = GetIconSize(hWnd);
+    const COLORREF iconBackground = GetMenuBackgroundColor();
+
     // 遍历配置项,添加到菜单
     // 菜单命令 ID 直接对应配置项索引(从 1 开始,0 保留)
     for (size_t i = 0; i < items.size(); ++i)
@@ -49,7 +53,8 @@ int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hW
             // 设置菜单项图标
             if (!item.iconSource.empty())
             {
-                HBITMAP hBmp = IconManager::Instance().GetBitmap(item.iconSource, item.iconIndex, 16);
+                HBITMAP hBmp = IconManager::Instance().GetBitmap(
+                    item.iconSource, item.iconIndex, iconSize, iconBackground);
                 if (hBmp != nullptr)
                 {
                     MENUITEMINFOW mii = { 0 };
@@ -70,10 +75,8 @@ int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hW
     // TPM_RETURNCMD: 使 TrackPopupMenu 返回选择的命令 ID
     // TPM_LEFTALIGN | TPM_TOPALIGN: 默认对齐方式
     // TPM_NONOTIFY: 不发送 WM_COMMAND,直接返回命令 ID
-
-    // 将客户区坐标转换为屏幕坐标(TrafficMonitor 传递的是窗口客户区坐标)
+    // x, y 已经是屏幕坐标,这里不再做坐标转换
     POINT pt = { x, y };
-    ::ClientToScreen(hWnd, &pt);
 
     // TrackPopupMenu 的著名问题:owner 窗口必须是前台窗口,否则菜单一闪即逝
     ::SetForegroundWindow(hWnd);
@@ -118,6 +121,49 @@ bool MenuManager::ExecuteAction(const MenuConfigItem& item)
 
     Logger::Instance().Info(L"ExecuteAction: 执行菜单项=[" + item.name + L"]");
     return ExecuteScriptFile(item.scriptCode);
+}
+
+bool MenuManager::RunScript(const std::wstring& scriptCode)
+{
+    Logger::Instance().Info(L"RunScript: 手动执行脚本");
+    return ExecuteScriptFile(scriptCode);
+}
+
+int MenuManager::GetIconSize(HWND hWnd) const
+{
+    UINT dpi = 96;
+    if (hWnd != nullptr && ::IsWindow(hWnd))
+    {
+        dpi = ::GetDpiForWindow(hWnd);
+    }
+    if (dpi == 0) dpi = 96;
+
+    int size = ::MulDiv(16, static_cast<int>(dpi), 96);
+    if (size < 16) size = 16;
+    if (size > 32) size = 32;
+    return size;
+}
+
+COLORREF MenuManager::GetMenuBackgroundColor() const
+{
+    // 深色主题下使用深灰背景,避免菜单图标出现白色方块
+    DWORD appsUseLightTheme = 1;
+    DWORD dataSize = sizeof(appsUseLightTheme);
+    HKEY hKey = nullptr;
+    if (::RegOpenKeyExW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+            0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+    {
+        ::RegQueryValueExW(hKey, L"AppsUseLightTheme", nullptr, nullptr,
+            reinterpret_cast<LPBYTE>(&appsUseLightTheme), &dataSize);
+        ::RegCloseKey(hKey);
+    }
+
+    if (appsUseLightTheme == 0)
+    {
+        return RGB(43, 43, 43);
+    }
+    return ::GetSysColor(COLOR_MENU);
 }
 
 std::wstring MenuManager::FindPowerShellExe() const

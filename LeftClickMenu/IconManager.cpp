@@ -8,8 +8,9 @@
 
 IconManager& IconManager::Instance()
 {
-    static IconManager instance;
-    return instance;
+    // 使用不会析构的实例,保证插件析构时仍可安全地清理缓存
+    static IconManager* instance = new IconManager();
+    return *instance;
 }
 
 IconManager::IconManager()
@@ -87,13 +88,18 @@ HICON IconManager::GetIcon(const std::wstring& source, int index)
     return hIcon;
 }
 
-HBITMAP IconManager::GetBitmap(const std::wstring& source, int index, int size)
+HBITMAP IconManager::GetBitmap(const std::wstring& source, int index, int size, COLORREF background)
 {
     if (source.empty()) return nullptr;
 
-    // 生成缓存 key
+    if (background == CLR_NONE)
+    {
+        background = ::GetSysColor(COLOR_MENU);
+    }
+
+    // 生成缓存 key(包含尺寸和背景色,主题或 DPI 变化时会重新生成)
     std::wostringstream key;
-    key << source << L":" << index << L":" << size;
+    key << source << L":" << index << L":" << size << L":" << static_cast<int>(background);
     std::wstring keyStr = key.str();
 
     // 查找缓存
@@ -110,7 +116,7 @@ HBITMAP IconManager::GetBitmap(const std::wstring& source, int index, int size)
         return nullptr;
     }
 
-    HBITMAP hBmp = IconToBitmap(hIcon, size);
+    HBITMAP hBmp = IconToBitmap(hIcon, size, background);
     m_bitmapCache[keyStr] = hBmp;
     return hBmp;
 }
@@ -180,7 +186,7 @@ HICON IconManager::LoadFileIcon(const std::wstring& path, int index)
     return nullptr;
 }
 
-HBITMAP IconManager::IconToBitmap(HICON hIcon, int size)
+HBITMAP IconManager::IconToBitmap(HICON hIcon, int size, COLORREF background)
 {
     if (hIcon == nullptr) return nullptr;
 
@@ -208,9 +214,14 @@ HBITMAP IconManager::IconToBitmap(HICON hIcon, int size)
     // 选入位图
     HBITMAP hOldBmp = (HBITMAP)::SelectObject(hMemDC, hBmp);
 
-    // 填充透明背景(使用菜单颜色)
+    // 用菜单背景色填充,深色主题下不会出现白色方块
     RECT rc = { 0, 0, size, size };
-    ::FillRect(hMemDC, &rc, (HBRUSH)::GetStockObject(WHITE_BRUSH));
+    HBRUSH hBrush = ::CreateSolidBrush(background);
+    if (hBrush != nullptr)
+    {
+        ::FillRect(hMemDC, &rc, hBrush);
+        ::DeleteObject(hBrush);
+    }
 
     // 绘制图标
     ::DrawIconEx(hMemDC, 0, 0, hIcon, size, size, 0, nullptr, DI_NORMAL);

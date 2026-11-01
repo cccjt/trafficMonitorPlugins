@@ -17,15 +17,17 @@ public:
     // 获取图标
     // source: 内置名称(script/folder/program/url/settings)或文件路径
     // index: 文件图标索引(默认 0)
-    // 返回 HICON,调用方负责 DestroyIcon
+    // 返回的 HICON 由 IconManager 缓存并统一释放,调用方不要 DestroyIcon
     HICON GetIcon(const std::wstring& source, int index = 0);
 
     // 获取位图(用于菜单显示)
     // source: 内置名称或文件路径
     // index: 文件图标索引
     // size: 位图尺寸(默认 16x16)
-    // 返回 HBITMAP,调用方负责 DeleteObject
-    HBITMAP GetBitmap(const std::wstring& source, int index = 0, int size = 16);
+    // background: 位图背景色(菜单深浅主题),CLR_NONE 表示使用系统菜单色
+    // 返回的 HBITMAP 由 IconManager 缓存并统一释放,调用方不要 DeleteObject
+    HBITMAP GetBitmap(const std::wstring& source, int index = 0, int size = 16,
+        COLORREF background = CLR_NONE);
 
     // 获取内置图标名称列表
     const std::vector<std::wstring>& GetBuiltinNames() const { return m_builtinNames; }
@@ -47,8 +49,8 @@ private:
     // 从文件加载图标
     HICON LoadFileIcon(const std::wstring& path, int index);
 
-    // HICON 转 HBITMAP
-    HBITMAP IconToBitmap(HICON hIcon, int size);
+    // HICON 转 HBITMAP(背景填充菜单颜色,避免深色主题下出现白色方块)
+    HBITMAP IconToBitmap(HICON hIcon, int size, COLORREF background);
 
     // 内置图标名 -> 资源 ID 映射
     std::map<std::wstring, UINT> m_builtinMap;

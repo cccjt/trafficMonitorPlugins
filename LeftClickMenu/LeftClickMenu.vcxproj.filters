@@ -36,7 +36,7 @@
     <ClInclude Include="MenuPlugin.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="TaskbarSubclasser.h">
+    <ClInclude Include="TaskbarOverlay.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="OptionsDialog.h">
@@ -77,7 +77,7 @@
     <ClCompile Include="MenuPlugin.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="TaskbarSubclasser.cpp">
+    <ClCompile Include="TaskbarOverlay.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="OptionsDialog.cpp">

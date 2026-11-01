@@ -1,8 +1,11 @@
 #include "stdafx.h"
 #include "MenuEditDialog.h"
+#include "MenuManager.h"
 #include "IconManager.h"
 #include "resource.h"
 #include <afxdialogex.h>
+#include <stdlib.h>
+#include <cwchar>
 
 IMPLEMENT_DYNAMIC(CMenuEditDialog, CDialogEx)
 
@@ -26,12 +29,15 @@ void CMenuEditDialog::DoDataExchange(CDataExchange* pDX)
     DDX_Control(pDX, IDC_COMBO_ICON, m_comboIcon);
     DDX_Control(pDX, IDC_BTN_BROWSE_ICON, m_btnBrowseIcon);
     DDX_Control(pDX, IDC_STATIC_ICON_PREVIEW, m_staticPreview);
+    DDX_Control(pDX, IDC_EDIT_ICON_INDEX, m_editIconIndex);
+    DDX_Control(pDX, IDC_BTN_TEST_RUN, m_btnTestRun);
 }
 
 BEGIN_MESSAGE_MAP(CMenuEditDialog, CDialogEx)
     ON_BN_CLICKED(IDC_BTN_BROWSE_ICON, &CMenuEditDialog::OnBnClickedBrowseIcon)
     ON_BN_CLICKED(IDC_CHECK_SEPARATOR, &CMenuEditDialog::OnBnClickedSeparator)
     ON_CBN_SELCHANGE(IDC_COMBO_ICON, &CMenuEditDialog::OnCbnSelchangeIcon)
+    ON_BN_CLICKED(IDC_BTN_TEST_RUN, &CMenuEditDialog::OnBnClickedTestRun)
     ON_BN_CLICKED(IDOK, &CMenuEditDialog::OnBnClickedOk)
     ON_BN_CLICKED(IDCANCEL, &CMenuEditDialog::OnBnClickedCancel)
 END_MESSAGE_MAP()
@@ -40,20 +46,23 @@ BOOL CMenuEditDialog::OnInitDialog()
 {
     CDialogEx::OnInitDialog();
 
-    // 填充图标下拉框:第一项为"无",然后是内置图标,最后是"(自定义路径)"
+    // 填充图标下拉框:第一项为"无",然后是内置图标,最后一项是自定义文件路径
     m_comboIcon.AddString(L"(无)");
     const auto& builtinNames = IconManager::Instance().GetBuiltinNames();
     for (const auto& name : builtinNames)
     {
         m_comboIcon.AddString(name.c_str());
     }
-    m_comboIcon.AddString(L"(自定义路径)");
 
     // 设置初始值
     m_editName.SetWindowTextW(m_result.name.c_str());
     m_editScript.SetWindowTextW(m_result.scriptCode.c_str());
     m_chkEnabled.SetCheck(m_result.enabled ? BST_CHECKED : BST_UNCHECKED);
     m_chkSeparator.SetCheck(m_result.isSeparator ? BST_CHECKED : BST_UNCHECKED);
+
+    CString iconIndexText;
+    iconIndexText.Format(L"%d", m_result.iconIndex);
+    m_editIconIndex.SetWindowTextW(iconIndexText);
 
     // 设置图标选择
     if (m_result.iconSource.empty())
@@ -62,7 +71,6 @@ BOOL CMenuEditDialog::OnInitDialog()
     }
     else
     {
-        // 检查是否为内置名称
         bool isBuiltin = false;
         for (size_t i = 0; i < builtinNames.size(); ++i)
         {
@@ -75,9 +83,9 @@ BOOL CMenuEditDialog::OnInitDialog()
         }
         if (!isBuiltin)
         {
-            // 自定义路径,显示在编辑框中
+            // 自定义路径作为下拉框的最后一项
+            m_comboIcon.AddString(m_result.iconSource.c_str());
             m_comboIcon.SetCurSel(static_cast<int>(builtinNames.size() + 1));
-            m_comboIcon.SetWindowTextW(m_result.iconSource.c_str());
         }
     }
 
@@ -89,35 +97,56 @@ BOOL CMenuEditDialog::OnInitDialog()
 
 void CMenuEditDialog::UpdateControlStates()
 {
-    // 分隔线勾选时禁用名称和脚本编辑
+    // 分隔线勾选时禁用名称、脚本和图标设置
     BOOL isSeparator = (m_chkSeparator.GetCheck() == BST_CHECKED);
+
     m_editName.EnableWindow(!isSeparator);
     m_editScript.EnableWindow(!isSeparator);
     m_comboIcon.EnableWindow(!isSeparator);
     m_btnBrowseIcon.EnableWindow(!isSeparator);
+    m_btnTestRun.EnableWindow(!isSeparator);
+
+    // 只有自定义文件图标才需要填写图标序号
+    int sel = m_comboIcon.GetCurSel();
+    int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
+    BOOL isCustom = !isSeparator && sel > builtinCount;
+    m_editIconIndex.EnableWindow(isCustom);
+}
+
+int CMenuEditDialog::GetSelectedIconIndex() const
+{
+    CString text;
+    m_editIconIndex.GetWindowTextW(text);
+    text.Trim();
+    if (text.IsEmpty()) return 0;
+
+    int value = _wtoi(static_cast<LPCWSTR>(text));
+    return value < 0 ? 0 : value;
 }
 
 void CMenuEditDialog::UpdateIconPreview()
 {
-    // 获取当前图标源
-    CString iconSource;
     int sel = m_comboIcon.GetCurSel();
+    int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
 
-    const auto& builtinNames = IconManager::Instance().GetBuiltinNames();
-    if (sel == 0 || sel == CB_ERR)
+    if (sel <= 0 || sel == CB_ERR)
     {
         // 无图标
         m_staticPreview.SetIcon(nullptr);
         return;
     }
-    else if (sel <= static_cast<int>(builtinNames.size()))
+
+    CString iconSource;
+    int iconIndex = 0;
+    if (sel <= builtinCount)
     {
-        iconSource = builtinNames[sel - 1].c_str();
+        iconSource = IconManager::Instance().GetBuiltinNames()[sel - 1].c_str();
     }
     else
     {
         // 自定义路径
-        m_comboIcon.GetWindowTextW(iconSource);
+        m_comboIcon.GetLBText(sel, iconSource);
+        iconIndex = GetSelectedIconIndex();
     }
 
     if (iconSource.IsEmpty())
@@ -126,16 +155,9 @@ void CMenuEditDialog::UpdateIconPreview()
         return;
     }
 
-    // 加载图标并显示预览
-    HICON hIcon = IconManager::Instance().GetIcon(iconSource.GetString(), m_result.iconIndex);
-    if (hIcon)
-    {
-        m_staticPreview.SetIcon(hIcon);
-    }
-    else
-    {
-        m_staticPreview.SetIcon(nullptr);
-    }
+    // 加载图标并显示预览(图标由 IconManager 缓存,不能在这里销毁)
+    HICON hIcon = IconManager::Instance().GetIcon(iconSource.GetString(), iconIndex);
+    m_staticPreview.SetIcon(hIcon != nullptr ? hIcon : nullptr);
 }
 
 void CMenuEditDialog::OnBnClickedBrowseIcon()
@@ -148,11 +170,17 @@ void CMenuEditDialog::OnBnClickedBrowseIcon()
     if (dlg.DoModal() == IDOK)
     {
         CString path = dlg.GetPathName();
-        // 选择"(自定义路径)"项并显示路径
-        const auto& builtinNames = IconManager::Instance().GetBuiltinNames();
-        m_comboIcon.SetCurSel(static_cast<int>(builtinNames.size() + 1));
-        m_comboIcon.SetWindowTextW(path);
-        m_result.iconSource = path.GetString();
+        int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
+
+        // 自定义路径固定放在下拉框最后一项,替换掉旧的自定义项
+        while (m_comboIcon.GetCount() > builtinCount + 1)
+        {
+            m_comboIcon.DeleteString(builtinCount + 1);
+        }
+        m_comboIcon.AddString(path);
+        m_comboIcon.SetCurSel(builtinCount + 1);
+
+        UpdateControlStates();
         UpdateIconPreview();
     }
 }
@@ -164,6 +192,7 @@ void CMenuEditDialog::OnBnClickedSeparator()
 
 void CMenuEditDialog::OnCbnSelchangeIcon()
 {
+    UpdateControlStates();
     UpdateIconPreview();
 }
 
@@ -188,8 +217,46 @@ bool CMenuEditDialog::ValidateInput()
             MessageBoxW(L"请输入 PowerShell 脚本代码", L"提示", MB_OK | MB_ICONWARNING);
             return false;
         }
+
+        // 自定义文件图标时检查序号格式
+        int sel = m_comboIcon.GetCurSel();
+        int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
+        if (sel > builtinCount)
+        {
+            CString indexText;
+            m_editIconIndex.GetWindowTextW(indexText);
+            indexText.Trim();
+            if (!indexText.IsEmpty())
+            {
+                for (int i = 0; i < indexText.GetLength(); ++i)
+                {
+                    if (indexText[i] < L'0' || indexText[i] > L'9')
+                    {
+                        MessageBoxW(L"图标序号必须是非负整数", L"提示", MB_OK | MB_ICONWARNING);
+                        return false;
+                    }
+                }
+            }
+        }
     }
     return true;
+}
+
+void CMenuEditDialog::OnBnClickedTestRun()
+{
+    CString script;
+    m_editScript.GetWindowTextW(script);
+    if (script.IsEmpty())
+    {
+        MessageBoxW(L"请先输入 PowerShell 脚本代码", L"提示", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+
+    MenuManager manager;
+    if (!manager.RunScript(script.GetString()))
+    {
+        MessageBoxW(L"脚本启动失败,请查看插件日志", L"试运行", MB_OK | MB_ICONWARNING);
+    }
 }
 
 void CMenuEditDialog::OnBnClickedOk()
@@ -212,23 +279,25 @@ void CMenuEditDialog::OnBnClickedOk()
         m_editScript.GetWindowTextW(tmp);
         m_result.scriptCode = tmp;
 
-        // 图标源
+        // 图标来源
         int sel = m_comboIcon.GetCurSel();
-        const auto& builtinNames = IconManager::Instance().GetBuiltinNames();
-        if (sel == 0 || sel == CB_ERR)
+        int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
+        if (sel <= 0 || sel == CB_ERR)
         {
             m_result.iconSource.clear();
+            m_result.iconIndex = 0;
         }
-        else if (sel <= static_cast<int>(builtinNames.size()))
+        else if (sel <= builtinCount)
         {
-            m_result.iconSource = builtinNames[sel - 1];
+            m_result.iconSource = IconManager::Instance().GetBuiltinNames()[sel - 1];
+            m_result.iconIndex = 0;
         }
         else
         {
-            // 自定义路径
             CString path;
-            m_comboIcon.GetWindowTextW(path);
+            m_comboIcon.GetLBText(sel, path);
             m_result.iconSource = path.GetString();
+            m_result.iconIndex = GetSelectedIconIndex();
         }
     }
     else
@@ -237,6 +306,7 @@ void CMenuEditDialog::OnBnClickedOk()
         m_result.name.clear();
         m_result.scriptCode.clear();
         m_result.iconSource.clear();
+        m_result.iconIndex = 0;
     }
 
     CDialogEx::OnOK();

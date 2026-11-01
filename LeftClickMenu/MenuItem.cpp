@@ -61,7 +61,19 @@ int MenuItem::OnMouseEvent(MouseEventType type, int x, int y, void* hWnd, int fl
             return 1;   // 拦截默认行为
         }
 
-        m_owner->ShowMenuFromItem(hWnd, x, y);
+        // OnMouseEvent 传入的是窗口客户区坐标,菜单需要屏幕坐标
+        POINT pt = { x, y };
+        HWND hOwner = static_cast<HWND>(hWnd);
+        if (hOwner != nullptr)
+        {
+            ::ClientToScreen(hOwner, &pt);
+        }
+        else
+        {
+            ::GetCursorPos(&pt);
+        }
+
+        m_owner->ShowMenuFromItem(hWnd, pt.x, pt.y);
         return 1;   // 拦截默认行为
     }
     // 右键点击:不拦截,使用主程序默认右键菜单
