@@ -153,7 +153,7 @@ void COptionsDialog::RefreshList()
 
             if (imageIndex >= 0)
             {
-                m_list.SetItemImage(idx, imageIndex, 0);
+                m_list.SetItem(idx, 0, LVIF_IMAGE, nullptr, imageIndex, 0, 0, 0);
             }
         }
     }
