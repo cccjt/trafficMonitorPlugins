@@ -138,11 +138,11 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     }
     else
     {
-        lf.lfHeight = -::MulDiv(11, m_dpi, 72);
+        lf.lfHeight = -::MulDiv(10, m_dpi, 72);
         lf.lfCharSet = DEFAULT_CHARSET;
         wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"Microsoft YaHei UI");
     }
-    lf.lfHeight = -::MulDiv(11, m_dpi, 72);
+    lf.lfHeight = -::MulDiv(10, m_dpi, 72);
     lf.lfWeight = FW_NORMAL;
     m_font = ::CreateFontIndirectW(&lf);
 
@@ -173,17 +173,17 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     }
 
     // 尺寸随 DPI 缩放
-    m_rowHeight = ::MulDiv(44, m_dpi, 96);
-    m_sepHeight = ::MulDiv(12, m_dpi, 96);
-    m_headerHeight = ::MulDiv(44, m_dpi, 96);
-    m_gearRowHeight = ::MulDiv(38, m_dpi, 96);
+    m_rowHeight = ::MulDiv(40, m_dpi, 96);
+    m_sepHeight = ::MulDiv(11, m_dpi, 96);
+    m_headerHeight = ::MulDiv(42, m_dpi, 96);
+    m_gearRowHeight = ::MulDiv(36, m_dpi, 96);
     m_paddingX = ::MulDiv(12, m_dpi, 96);
     m_paddingY = ::MulDiv(6, m_dpi, 96);
-    m_iconSize = ::MulDiv(24, m_dpi, 96);
-    m_iconGap = ::MulDiv(10, m_dpi, 96);
-    m_tileGap = ::MulDiv(6, m_dpi, 96);
-    m_tileIconSize = ::MulDiv(36, m_dpi, 96);
-    m_tileCellHeight = ::MulDiv(84, m_dpi, 96);
+    m_iconSize = ::MulDiv(22, m_dpi, 96);
+    m_iconGap = ::MulDiv(9, m_dpi, 96);
+    m_tileGap = ::MulDiv(5, m_dpi, 96);
+    m_tileIconSize = ::MulDiv(32, m_dpi, 96);
+    m_tileCellHeight = ::MulDiv(74, m_dpi, 96);
 
     // 面板宽度来自配置(96 DPI 像素),按 DPI 缩放
     const int minConfiguredWidth = ::MulDiv(160, m_dpi, 96);
