@@ -92,6 +92,7 @@
     <ClInclude Include="MenuEditDialog.h" />
     <ClInclude Include="MenuItem.h" />
     <ClInclude Include="MenuManager.h" />
+    <ClInclude Include="MenuPanel.h" />
     <ClInclude Include="MenuPlugin.h" />
     <ClInclude Include="TaskbarOverlay.h" />
     <ClInclude Include="OptionsDialog.h" />
@@ -107,6 +108,7 @@
     <ClCompile Include="MenuEditDialog.cpp" />
     <ClCompile Include="MenuItem.cpp" />
     <ClCompile Include="MenuManager.cpp" />
+    <ClCompile Include="MenuPanel.cpp" />
     <ClCompile Include="MenuPlugin.cpp" />
     <ClCompile Include="TaskbarOverlay.cpp" />
     <ClCompile Include="OptionsDialog.cpp" />

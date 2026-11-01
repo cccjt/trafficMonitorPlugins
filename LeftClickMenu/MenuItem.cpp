@@ -48,19 +48,6 @@ int MenuItem::OnMouseEvent(MouseEventType type, int x, int y, void* hWnd, int fl
     {
         Logger::Instance().Info(L"OnMouseEvent: 左键点击, x=" + std::to_wstring(x) + L" y=" + std::to_wstring(y));
 
-        // 检查菜单是否为空
-        const auto& items = m_owner->GetConfig().GetItems();
-        if (items.empty())
-        {
-            Logger::Instance().Warn(L"OnMouseEvent: 菜单项为空");
-            ::MessageBoxW(
-                static_cast<HWND>(hWnd),
-                L"菜单项为空,请先在插件设置中添加菜单项。",
-                L"快捷菜单",
-                MB_OK | MB_ICONINFORMATION);
-            return 1;   // 拦截默认行为
-        }
-
         // OnMouseEvent 传入的是窗口客户区坐标,菜单需要屏幕坐标
         POINT pt = { x, y };
         HWND hOwner = static_cast<HWND>(hWnd);

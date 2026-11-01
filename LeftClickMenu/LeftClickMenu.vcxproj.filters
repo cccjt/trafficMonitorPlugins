@@ -33,6 +33,9 @@
     <ClInclude Include="MenuManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MenuPanel.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="MenuPlugin.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -72,6 +75,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MenuManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuPanel.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MenuPlugin.cpp">

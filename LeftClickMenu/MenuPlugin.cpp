@@ -175,22 +175,27 @@ void MenuPlugin::ShowMenuFromItem(void* hWnd, int screenX, int screenY)
     HWND hOwner = static_cast<HWND>(hWnd);
     if (hOwner == nullptr) hOwner = ::GetForegroundWindow();
     if (hOwner == nullptr) hOwner = ::GetDesktopWindow();
-    m_manager.ShowPopupMenu(m_config.GetItems(), hOwner, screenX, screenY);
+
+    bool editRequested = false;
+    m_manager.ShowPopupMenu(m_config.GetItems(), hOwner, screenX, screenY, &editRequested);
+    if (editRequested)
+    {
+        ShowOptionsDialog(hWnd);
+    }
 }
 
 void MenuPlugin::ShowMenuFromTaskbar(HWND hTargetWnd, int screenX, int screenY)
 {
-    if (m_config.GetItems().empty())
-    {
-        ::MessageBoxW(hTargetWnd, L"菜单项为空,请先在插件选项中添加菜单项。",
-            L"快捷菜单", MB_OK | MB_ICONINFORMATION);
-        return;
-    }
-
     HWND hOwner = hTargetWnd;
     if (hOwner == nullptr) hOwner = ::GetForegroundWindow();
     if (hOwner == nullptr) hOwner = ::GetDesktopWindow();
-    m_manager.ShowPopupMenu(m_config.GetItems(), hOwner, screenX, screenY);
+
+    bool editRequested = false;
+    m_manager.ShowPopupMenu(m_config.GetItems(), hOwner, screenX, screenY, &editRequested);
+    if (editRequested)
+    {
+        ShowOptionsDialog(hTargetWnd);
+    }
 }
 
 // 静态回调函数,供 TaskbarOverlay 调用

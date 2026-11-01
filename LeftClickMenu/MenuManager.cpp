@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "MenuManager.h"
-#include "IconManager.h"
+#include "MenuPanel.h"
 #include "Logger.h"
 #include <sstream>
 #include <fstream>
@@ -12,103 +12,36 @@
 MenuManager::MenuManager() {}
 MenuManager::~MenuManager() {}
 
-int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hWnd, int x, int y)
+int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hWnd, int x, int y,
+    bool* editRequested)
 {
-    if (items.empty())
+    if (editRequested != nullptr) *editRequested = false;
+
+    Logger::Instance().Info(L"ShowPopupMenu: 显示菜单面板, 屏幕坐标=("
+        + std::to_wstring(x) + L"," + std::to_wstring(y) + L"), 菜单项="
+        + std::to_wstring(items.size()));
+
+    MenuPanel::Result result = MenuPanel::Show(items, hWnd, x, y);
+
+    if (editRequested != nullptr) *editRequested = result.editRequested;
+    if (result.editRequested)
     {
-        Logger::Instance().Warn(L"ShowPopupMenu: 菜单项列表为空");
+        Logger::Instance().Info(L"ShowPopupMenu: 用户点击了编辑按钮");
         return -1;
     }
 
-    HMENU hMenu = ::CreatePopupMenu();
-    if (hMenu == nullptr)
+    if (result.selectedIndex >= 0 && result.selectedIndex < static_cast<int>(items.size()))
     {
-        Logger::Instance().Error(L"ShowPopupMenu: CreatePopupMenu 失败, 错误码=" + std::to_wstring(::GetLastError()));
-        return -1;
-    }
-
-    // 图标尺寸随 DPI 缩放,位图背景跟随深浅主题
-    const int iconSize = GetIconSize(hWnd);
-    const COLORREF iconBackground = GetMenuBackgroundColor();
-
-    // 遍历配置项,添加到菜单
-    // 菜单命令 ID 直接对应配置项索引(从 1 开始,0 保留)
-    for (size_t i = 0; i < items.size(); ++i)
-    {
-        const MenuConfigItem& item = items[i];
-
-        if (item.isSeparator)
-        {
-            ::AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
-        }
-        else
-        {
-            UINT flags = MF_STRING;
-            if (!item.enabled) flags |= MF_GRAYED | MF_DISABLED;
-
-            // 命令 ID = 索引 + 1(避免 0)
-            UINT cmdId = static_cast<UINT>(i + 1);
-            ::AppendMenuW(hMenu, flags, cmdId, item.name.c_str());
-
-            // 设置菜单项图标
-            if (!item.iconSource.empty())
-            {
-                HBITMAP hBmp = IconManager::Instance().GetBitmap(
-                    item.iconSource, item.iconIndex, iconSize, iconBackground);
-                if (hBmp != nullptr)
-                {
-                    MENUITEMINFOW mii = { 0 };
-                    mii.cbSize = sizeof(MENUITEMINFOW);
-                    mii.fMask = MIIM_BITMAP;
-                    mii.hbmpItem = hBmp;
-                    ::SetMenuItemInfoW(hMenu, cmdId, FALSE, &mii);
-                }
-                else
-                {
-                    Logger::Instance().Warn(L"ShowPopupMenu: 无法加载图标 [" + item.iconSource + L"]");
-                }
-            }
-        }
-    }
-
-    // 显示弹出菜单
-    // TPM_RETURNCMD: 使 TrackPopupMenu 返回选择的命令 ID
-    // TPM_LEFTALIGN | TPM_TOPALIGN: 默认对齐方式
-    // TPM_NONOTIFY: 不发送 WM_COMMAND,直接返回命令 ID
-    // x, y 已经是屏幕坐标,这里不再做坐标转换
-    POINT pt = { x, y };
-
-    // TrackPopupMenu 的著名问题:owner 窗口必须是前台窗口,否则菜单一闪即逝
-    ::SetForegroundWindow(hWnd);
-
-    Logger::Instance().Info(L"ShowPopupMenu: 显示菜单, 屏幕坐标=(" + std::to_wstring(pt.x) + L"," + std::to_wstring(pt.y) + L")");
-
-    UINT cmd = ::TrackPopupMenu(
-        hMenu,
-        TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD | TPM_NONOTIFY,
-        pt.x, pt.y, 0, hWnd, nullptr);
-
-    // 标准修复:发送 WM_NULL 确保菜单正确关闭
-    ::PostMessage(hWnd, WM_NULL, 0, 0);
-
-    ::DestroyMenu(hMenu);
-
-    if (cmd == 0)
-    {
-        Logger::Instance().Info(L"ShowPopupMenu: 用户未选择菜单项");
-        return -1;  // 用户未选择
-    }
-
-    int selectedIndex = static_cast<int>(cmd) - 1;
-    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(items.size()))
-    {
-        const MenuConfigItem& selectedItem = items[selectedIndex];
+        const MenuConfigItem& selectedItem = items[result.selectedIndex];
         if (selectedItem.enabled && !selectedItem.isSeparator)
         {
             ExecuteAction(selectedItem);
+            return result.selectedIndex;
         }
     }
-    return selectedIndex;
+
+    Logger::Instance().Info(L"ShowPopupMenu: 用户未选择菜单项");
+    return -1;
 }
 
 bool MenuManager::ExecuteAction(const MenuConfigItem& item)
@@ -127,55 +60,6 @@ bool MenuManager::RunScript(const std::wstring& scriptCode)
 {
     Logger::Instance().Info(L"RunScript: 手动执行脚本");
     return ExecuteScriptFile(scriptCode);
-}
-
-int MenuManager::GetIconSize(HWND hWnd) const
-{
-    UINT dpi = 96;
-
-    // 动态获取 GetDpiForWindow,避免在旧系统上因缺少该导出函数导致插件无法加载
-    typedef UINT(WINAPI* GetDpiForWindowFn)(HWND);
-    static GetDpiForWindowFn getDpiForWindow = reinterpret_cast<GetDpiForWindowFn>(
-        ::GetProcAddress(::GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
-
-    if (getDpiForWindow != nullptr && hWnd != nullptr && ::IsWindow(hWnd))
-    {
-        dpi = getDpiForWindow(hWnd);
-    }
-    if (dpi == 0)
-    {
-        HDC hdc = ::GetDC(hWnd);
-        dpi = static_cast<UINT>(::GetDeviceCaps(hdc, LOGPIXELSX));
-        ::ReleaseDC(hWnd, hdc);
-    }
-    if (dpi == 0) dpi = 96;
-
-    int size = ::MulDiv(16, static_cast<int>(dpi), 96);
-    if (size < 16) size = 16;
-    if (size > 32) size = 32;
-    return size;
-}
-
-COLORREF MenuManager::GetMenuBackgroundColor() const
-{
-    // 深色主题下使用深灰背景,避免菜单图标出现白色方块
-    DWORD appsUseLightTheme = 1;
-    DWORD dataSize = sizeof(appsUseLightTheme);
-    HKEY hKey = nullptr;
-    if (::RegOpenKeyExW(HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-            0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
-    {
-        ::RegQueryValueExW(hKey, L"AppsUseLightTheme", nullptr, nullptr,
-            reinterpret_cast<LPBYTE>(&appsUseLightTheme), &dataSize);
-        ::RegCloseKey(hKey);
-    }
-
-    if (appsUseLightTheme == 0)
-    {
-        return RGB(43, 43, 43);
-    }
-    return ::GetSysColor(COLOR_MENU);
 }
 
 std::wstring MenuManager::FindPowerShellExe() const
