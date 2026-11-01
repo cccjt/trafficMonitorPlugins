@@ -9,7 +9,7 @@
 namespace
 {
 const UINT_PTR SYNC_TIMER_ID = 1;
-const UINT SYNC_INTERVAL_MS = 300;
+const UINT SYNC_INTERVAL_MS = 1000;
 
 struct FindWindowData
 {
