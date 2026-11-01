@@ -180,8 +180,9 @@ HWND TaskbarOverlay::CreateOverlayWindow(HWND hTargetWnd, TaskbarOverlay* owner)
 
     ::SetWindowLongPtrW(hOverlay, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(owner));
 
-    // 完全透明(alpha=0)但保留鼠标命中:不设置 WS_EX_TRANSPARENT
-    ::SetLayeredWindowAttributes(hOverlay, 0, 0, LWA_ALPHA);
+    // 几乎完全透明,但 alpha 必须大于 0:
+    // alpha=0 的层窗口连鼠标消息也会穿透,窗口将永远收不到点击
+    ::SetLayeredWindowAttributes(hOverlay, 0, 1, LWA_ALPHA);
     ::SetWindowPos(hOverlay, HWND_TOPMOST, targetRect.left, targetRect.top,
         targetRect.right - targetRect.left, targetRect.bottom - targetRect.top,
         SWP_NOACTIVATE | SWP_SHOWWINDOW);
