@@ -62,6 +62,18 @@ BOOL CALLBACK EnumTaskbarProc(HWND hWnd, LPARAM lParam)
     return data->result == nullptr ? TRUE : FALSE;
 }
 
+// 检查当前线程是否有菜单窗口(#32768)
+BOOL CALLBACK EnumThreadMenuProc(HWND hWnd, LPARAM lParam)
+{
+    wchar_t className[256] = { 0 };
+    if (::GetClassNameW(hWnd, className, 256) > 0 && wcscmp(className, L"#32768") == 0)
+    {
+        *reinterpret_cast<bool*>(lParam) = true;
+        return FALSE;
+    }
+    return TRUE;
+}
+
 // 兜底:旧版 TrafficMonitor 的任务栏窗口可能是独立的顶层窗口
 BOOL CALLBACK EnumOwnTaskbarProc(HWND hWnd, LPARAM lParam)
 {
@@ -95,6 +107,12 @@ TaskbarOverlay& TaskbarOverlay::Instance()
     return *instance;
 }
 
+HHOOK TaskbarOverlay::s_hook = nullptr;
+HWND TaskbarOverlay::s_createdWnd = nullptr;
+HWND TaskbarOverlay::s_targetWnd = nullptr;
+TaskbarOverlay* TaskbarOverlay::s_owner = nullptr;
+bool TaskbarOverlay::s_inCreation = false;
+
 TaskbarOverlay::TaskbarOverlay() {}
 TaskbarOverlay::~TaskbarOverlay() {}
 
@@ -119,19 +137,12 @@ HWND TaskbarOverlay::FindTaskbarWindow() const
     return nullptr;
 }
 
-bool TaskbarOverlay::Install()
+HWND TaskbarOverlay::CreateOverlayWindow(HWND hTargetWnd, TaskbarOverlay* owner)
 {
-    if (m_hOverlayWnd != nullptr) return true;
-
-    m_hTargetWnd = FindTaskbarWindow();
-    if (m_hTargetWnd == nullptr)
-    {
-        Logger::Instance().Warn(L"TaskbarOverlay::Install: 未找到 TrafficMonitor 任务栏窗口");
-        return false;
-    }
+    if (hTargetWnd == nullptr || owner == nullptr) return nullptr;
 
     RECT targetRect = { 0 };
-    ::GetWindowRect(m_hTargetWnd, &targetRect);
+    ::GetWindowRect(hTargetWnd, &targetRect);
 
     HINSTANCE hInstance = ::GetModuleHandleW(L"LeftClickMenu.dll");
     if (hInstance == nullptr) hInstance = ::GetModuleHandleW(nullptr);
@@ -146,41 +157,115 @@ bool TaskbarOverlay::Install()
         wc.lpszClassName = L"LeftClickMenuOverlayWnd";
         if (::RegisterClassExW(&wc) == 0 && ::GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
         {
-            Logger::Instance().Error(L"TaskbarOverlay::Install: 注册覆盖窗类失败, 错误码="
+            Logger::Instance().Error(L"TaskbarOverlay::CreateOverlayWindow: 注册覆盖窗类失败, 错误码="
                 + std::to_wstring(::GetLastError()));
-            m_hTargetWnd = nullptr;
-            return false;
+            return nullptr;
         }
         classRegistered = true;
     }
 
-    m_hOverlayWnd = ::CreateWindowExW(
+    HWND hOverlay = ::CreateWindowExW(
         WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
         L"LeftClickMenuOverlayWnd", L"", WS_POPUP,
         targetRect.left, targetRect.top,
         targetRect.right - targetRect.left, targetRect.bottom - targetRect.top,
         nullptr, nullptr, hInstance, nullptr);
 
-    if (m_hOverlayWnd == nullptr)
+    if (hOverlay == nullptr)
     {
-        Logger::Instance().Error(L"TaskbarOverlay::Install: 创建覆盖窗失败, 错误码="
+        Logger::Instance().Error(L"TaskbarOverlay::CreateOverlayWindow: 创建覆盖窗失败, 错误码="
             + std::to_wstring(::GetLastError()));
-        m_hTargetWnd = nullptr;
-        return false;
+        return nullptr;
     }
 
-    ::SetWindowLongPtrW(m_hOverlayWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    ::SetWindowLongPtrW(hOverlay, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(owner));
 
     // 完全透明(alpha=0)但保留鼠标命中:不设置 WS_EX_TRANSPARENT
-    ::SetLayeredWindowAttributes(m_hOverlayWnd, 0, 0, LWA_ALPHA);
-    ::SetWindowPos(m_hOverlayWnd, HWND_TOPMOST, targetRect.left, targetRect.top,
+    ::SetLayeredWindowAttributes(hOverlay, 0, 0, LWA_ALPHA);
+    ::SetWindowPos(hOverlay, HWND_TOPMOST, targetRect.left, targetRect.top,
         targetRect.right - targetRect.left, targetRect.bottom - targetRect.top,
         SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    ::SetTimer(m_hOverlayWnd, SYNC_TIMER_ID, SYNC_INTERVAL_MS, nullptr);
+    ::SetTimer(hOverlay, SYNC_TIMER_ID, SYNC_INTERVAL_MS, nullptr);
 
     Logger::Instance().Info(L"TaskbarOverlay::Install: 覆盖窗创建成功, 区域=("
         + std::to_wstring(targetRect.left) + L"," + std::to_wstring(targetRect.top) + L")-("
         + std::to_wstring(targetRect.right) + L"," + std::to_wstring(targetRect.bottom) + L")");
+    return hOverlay;
+}
+
+LRESULT CALLBACK TaskbarOverlay::CreateWindowHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode == HC_ACTION && !s_inCreation && s_createdWnd == nullptr
+        && s_targetWnd != nullptr && s_owner != nullptr)
+    {
+        s_inCreation = true;
+        s_createdWnd = CreateOverlayWindow(s_targetWnd, s_owner);
+        s_inCreation = false;
+    }
+    return ::CallNextHookEx(s_hook, nCode, wParam, lParam);
+}
+
+bool TaskbarOverlay::Install()
+{
+    if (m_hOverlayWnd != nullptr)
+    {
+        if (::IsWindow(m_hOverlayWnd)) return true;
+        m_hOverlayWnd = nullptr;    // 窗口句柄已失效,重新创建
+    }
+
+    m_hTargetWnd = FindTaskbarWindow();
+    if (m_hTargetWnd == nullptr)
+    {
+        Logger::Instance().Warn(L"TaskbarOverlay::Install: 未找到 TrafficMonitor 任务栏窗口");
+        return false;
+    }
+
+    // 覆盖窗必须创建在会处理其窗口消息的线程上
+    // 插件初始化可能在后台线程执行,直接创建会导致窗口收不到任何鼠标消息
+    DWORD targetThreadId = ::GetWindowThreadProcessId(m_hTargetWnd, nullptr);
+    if (targetThreadId == ::GetCurrentThreadId())
+    {
+        m_hOverlayWnd = CreateOverlayWindow(m_hTargetWnd, this);
+    }
+    else
+    {
+        HINSTANCE hInstance = ::GetModuleHandleW(L"LeftClickMenu.dll");
+        if (hInstance == nullptr) hInstance = ::GetModuleHandleW(nullptr);
+
+        s_createdWnd = nullptr;
+        s_targetWnd = m_hTargetWnd;
+        s_owner = this;
+        s_inCreation = false;
+
+        // 用一个临时钩子在任务栏窗口所属线程上执行创建
+        s_hook = ::SetWindowsHookExW(WH_CALLWNDPROC,
+            &TaskbarOverlay::CreateWindowHookProc, hInstance, targetThreadId);
+        if (s_hook == nullptr)
+        {
+            Logger::Instance().Error(L"TaskbarOverlay::Install: 安装线程钩子失败, 错误码="
+                + std::to_wstring(::GetLastError()));
+        }
+        else
+        {
+            DWORD_PTR sendResult = 0;
+            ::SendMessageTimeoutW(m_hTargetWnd, WM_NULL, 0, 0,
+                SMTO_ABORTIFHUNG | SMTO_BLOCK, 2000, &sendResult);
+            ::UnhookWindowsHookEx(s_hook);
+            s_hook = nullptr;
+
+            m_hOverlayWnd = s_createdWnd;
+            s_createdWnd = nullptr;
+            s_targetWnd = nullptr;
+            s_owner = nullptr;
+        }
+    }
+
+    if (m_hOverlayWnd == nullptr)
+    {
+        Logger::Instance().Error(L"TaskbarOverlay::Install: 创建覆盖窗失败");
+        m_hTargetWnd = nullptr;
+        return false;
+    }
     return true;
 }
 
@@ -188,9 +273,11 @@ void TaskbarOverlay::Uninstall()
 {
     if (m_hOverlayWnd != nullptr)
     {
-        ::KillTimer(m_hOverlayWnd, SYNC_TIMER_ID);
-        ::SetWindowLongPtrW(m_hOverlayWnd, GWLP_USERDATA, 0);
-        ::DestroyWindow(m_hOverlayWnd);
+        if (::IsWindow(m_hOverlayWnd))
+        {
+            // 窗口由主程序 UI 线程处理消息,交给它自己销毁,避免跨线程 DestroyWindow
+            ::PostMessageW(m_hOverlayWnd, WM_CLOSE, 0, 0);
+        }
         m_hOverlayWnd = nullptr;
         Logger::Instance().Info(L"TaskbarOverlay::Uninstall: 覆盖窗已销毁");
     }
@@ -201,6 +288,14 @@ void TaskbarOverlay::Uninstall()
 void TaskbarOverlay::SyncPosition()
 {
     if (m_hOverlayWnd == nullptr) return;
+    if (!::IsWindow(m_hOverlayWnd))
+    {
+        m_hOverlayWnd = nullptr;
+        return;
+    }
+
+    // 菜单打开期间不移动/置顶覆盖窗,避免挡住菜单
+    if (IsMenuOpen()) return;
 
     // 任务栏窗口被重建时重新查找
     if (m_hTargetWnd == nullptr || !::IsWindow(m_hTargetWnd))
@@ -235,18 +330,43 @@ void TaskbarOverlay::SyncPosition()
         || overlayRect.right - overlayRect.left != width
         || overlayRect.bottom - overlayRect.top != height;
 
-    if (rectChanged)
+    // 任务栏会被系统重新置顶,需要定期把覆盖窗拉回任务栏之上
+    bool needRaise = rectChanged || !::IsWindowVisible(m_hOverlayWnd) || IsOverlayBelowTaskbar();
+
+    if (needRaise)
     {
-        // 移动时重新置顶,保持覆盖在任务栏窗口之上
         ::SetWindowPos(m_hOverlayWnd, HWND_TOPMOST, targetRect.left, targetRect.top, width, height,
             SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
-    else if (!::IsWindowVisible(m_hOverlayWnd))
+}
+
+bool TaskbarOverlay::IsMenuOpen() const
+{
+    bool found = false;
+    ::EnumThreadWindows(::GetCurrentThreadId(), EnumThreadMenuProc, reinterpret_cast<LPARAM>(&found));
+    return found;
+}
+
+bool TaskbarOverlay::IsOverlayBelowTaskbar() const
+{
+    if (m_hOverlayWnd == nullptr) return false;
+
+    // 从 z 序顶部向下遍历,先遇到覆盖窗说明它仍在任务栏之上
+    HWND hWnd = ::GetTopWindow(nullptr);
+    while (hWnd != nullptr)
     {
-        // 重新显示并保持在任务栏窗口之上
-        ::SetWindowPos(m_hOverlayWnd, HWND_TOPMOST, targetRect.left, targetRect.top, width, height,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        if (hWnd == m_hOverlayWnd) return false;
+
+        wchar_t className[256] = { 0 };
+        if (::GetClassNameW(hWnd, className, 256) > 0
+            && (wcscmp(className, L"Shell_TrayWnd") == 0
+                || wcscmp(className, L"Shell_SecondaryTrayWnd") == 0))
+        {
+            return true;
+        }
+        hWnd = ::GetWindow(hWnd, GW_HWNDNEXT);
     }
+    return false;
 }
 
 void TaskbarOverlay::ForwardMouseMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -387,6 +507,11 @@ LRESULT CALLBACK TaskbarOverlay::OverlayProc(HWND hWnd, UINT uMsg, WPARAM wParam
 
     case WM_TIMER:
         if (wParam == SYNC_TIMER_ID && self != nullptr) self->SyncPosition();
+        return 0;
+
+    case WM_CLOSE:
+        // 覆盖窗由 Uninstall 通过 WM_CLOSE 请求销毁,必须在自己所属线程上销毁
+        ::DestroyWindow(hWnd);
         return 0;
 
     case WM_NCDESTROY:

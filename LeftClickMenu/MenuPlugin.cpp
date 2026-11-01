@@ -86,19 +86,28 @@ IPluginItem* MenuPlugin::GetItem(int index)
 
 void MenuPlugin::DataRequired()
 {
-    // 任务栏窗口可能在插件初始化之后才创建,未安装成功时每分钟重试一次
-    if (!m_overlayInstalled)
+    // 覆盖窗窗口失效时(例如任务栏窗口或所属线程被重建)需要重新创建
+    if (TaskbarOverlay::Instance().IsInstalled())
     {
-        DWORD now = ::GetTickCount();
-        if (now - m_lastOverlayRetryTick >= 60000)
+        m_overlayInstalled = true;
+        return;
+    }
+
+    bool wasInstalled = m_overlayInstalled;
+    m_overlayInstalled = false;
+
+    DWORD now = ::GetTickCount();
+    if (wasInstalled) m_lastOverlayRetryTick = 0;   // 覆盖窗刚刚失效,立即重试
+
+    // 任务栏窗口可能在插件初始化之后才创建,未安装成功时每分钟重试一次
+    if (now - m_lastOverlayRetryTick >= 60000)
+    {
+        m_lastOverlayRetryTick = now;
+        TaskbarOverlay::Instance().SetLeftClickCallback(&MenuPlugin::TaskbarLeftClickCallback);
+        if (TaskbarOverlay::Instance().Install())
         {
-            m_lastOverlayRetryTick = now;
-            TaskbarOverlay::Instance().SetLeftClickCallback(&MenuPlugin::TaskbarLeftClickCallback);
-            if (TaskbarOverlay::Instance().Install())
-            {
-                m_overlayInstalled = true;
-                Logger::Instance().Info(L"任务栏显示区域覆盖窗已创建(延迟重试成功)");
-            }
+            m_overlayInstalled = true;
+            Logger::Instance().Info(L"任务栏显示区域覆盖窗已创建(延迟重试成功)");
         }
     }
 }

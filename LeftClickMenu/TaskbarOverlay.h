@@ -19,7 +19,7 @@ public:
     // 销毁覆盖窗
     void Uninstall();
 
-    bool IsInstalled() const { return m_hOverlayWnd != nullptr; }
+    bool IsInstalled() const { return m_hOverlayWnd != nullptr && ::IsWindow(m_hOverlayWnd) != FALSE; }
 
     // 左键点击回调(屏幕坐标)
     typedef void (*LeftClickCallback)(HWND hTargetWnd, int x, int y);
@@ -35,11 +35,23 @@ private:
     // 覆盖窗窗口过程
     static LRESULT CALLBACK OverlayProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+    // 在目标线程上创建覆盖窗用的临时钩子
+    static LRESULT CALLBACK CreateWindowHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+
+    // 创建覆盖窗(必须在将要处理该窗口消息的线程上调用)
+    static HWND CreateOverlayWindow(HWND hTargetWnd, TaskbarOverlay* owner);
+
     // 查找 TrafficMonitor 任务栏窗口
     HWND FindTaskbarWindow() const;
 
     // 让覆盖窗跟随任务栏窗口的位置和可见状态
     void SyncPosition();
+
+    // 当前线程是否有菜单窗口打开
+    bool IsMenuOpen() const;
+
+    // 覆盖窗是否被任务栏窗口压在下面
+    bool IsOverlayBelowTaskbar() const;
 
     // 把鼠标消息转发给任务栏窗口
     void ForwardMouseMessage(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -49,4 +61,11 @@ private:
     LeftClickCallback m_callback = nullptr;
     bool m_trackingLeave = false;       // 是否已注册 WM_MOUSELEAVE 追踪
     DWORD m_lastRButtonUpTick = 0;      // 最近一次转发右键抬起的时刻,用于避免重复弹出右键菜单
+
+    // 跨线程创建窗口时使用的静态数据
+    static HHOOK s_hook;
+    static HWND s_createdWnd;
+    static HWND s_targetWnd;
+    static TaskbarOverlay* s_owner;
+    static bool s_inCreation;
 };
