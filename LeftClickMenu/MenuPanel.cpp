@@ -5,11 +5,14 @@
 #include <Windows.h>
 #include <windowsx.h>
 #include <string>
-#include <algorithm>
 #include <wchar.h>
 
 namespace
 {
+// 避免与 windows.h 的 min/max 宏冲突
+int MinInt(int a, int b) { return a < b ? a : b; }
+int MaxInt(int a, int b) { return a > b ? a : b; }
+
 // 方案开关:
 //   false = 方案 B(自绘标题栏,齿轮和关闭按钮在同一行)
 //   true  = 方案 A(系统标题栏,齿轮在关闭按钮下方)
@@ -189,7 +192,7 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
             if (::GetTextExtentPoint32W(hdc, item.name.c_str(),
                     static_cast<int>(item.name.size()), &size))
             {
-                maxTextWidth = std::max(maxTextWidth, static_cast<int>(size.cx));
+                maxTextWidth = MaxInt(maxTextWidth, static_cast<int>(size.cx));
             }
         }
 
@@ -205,7 +208,7 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
 
     int itemWidth = m_paddingX * 2 + m_iconSize + m_iconGap + maxTextWidth + rightPadding;
     int headerWidth = m_paddingX * 2 + titleWidth + m_iconGap * 2 + buttonSize * 2 + buttonGap;
-    m_width = std::max(minWidth, std::max(itemWidth, headerWidth));
+    m_width = MaxInt(minWidth, MaxInt(itemWidth, headerWidth));
 
     POINT pt = { screenX, screenY };
     MONITORINFO monitorInfo = { sizeof(MONITORINFO) };
@@ -249,10 +252,10 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
     int bodyAvailable = maxClientHeight - (kUseSystemCaption ? m_gearRowHeight : m_headerHeight);
     if (bodyAvailable < 0) bodyAvailable = 0;
 
-    m_viewHeight = std::min(desiredBodyHeight, bodyAvailable);
+    m_viewHeight = MinInt(desiredBodyHeight, bodyAvailable);
     if (empty)
     {
-        m_viewHeight = std::max(0, std::min(emptyViewHeight, bodyAvailable));
+        m_viewHeight = MaxInt(0, MinInt(emptyViewHeight, bodyAvailable));
         m_contentHeight = m_viewHeight;
     }
     m_scroll = 0;
@@ -736,7 +739,7 @@ void MenuPanel::DrawSlidersIcon(HDC hdc, const RECT& rc, COLORREF color)
     int y2 = rc.top + height / 2;
     int y3 = rc.top + height * 3 / 4;
 
-    HPEN pen = ::CreatePen(PS_SOLID, std::max(1, ::MulDiv(1, m_dpi, 96)), color);
+    HPEN pen = ::CreatePen(PS_SOLID, MaxInt(1, ::MulDiv(1, m_dpi, 96)), color);
     HGDIOBJ oldPen = ::SelectObject(hdc, pen);
     ::MoveToEx(hdc, x0, y1, nullptr);
     ::LineTo(hdc, x1, y1);
@@ -763,7 +766,7 @@ void MenuPanel::DrawSlidersIcon(HDC hdc, const RECT& rc, COLORREF color)
 void MenuPanel::DrawCloseIcon(HDC hdc, const RECT& rc, COLORREF color)
 {
     int inset = ::MulDiv(7, m_dpi, 96);
-    HPEN pen = ::CreatePen(PS_SOLID, std::max(1, ::MulDiv(1, m_dpi, 96)), color);
+    HPEN pen = ::CreatePen(PS_SOLID, MaxInt(1, ::MulDiv(1, m_dpi, 96)), color);
     HGDIOBJ oldPen = ::SelectObject(hdc, pen);
     ::MoveToEx(hdc, rc.left + inset, rc.top + inset, nullptr);
     ::LineTo(hdc, rc.right - inset, rc.bottom - inset);
@@ -936,7 +939,7 @@ void MenuPanel::Invalidate() const
 int MenuPanel::MaxScroll() const
 {
     if (m_items == nullptr) return 0;
-    return std::max(0, m_contentHeight - m_viewHeight);
+    return MaxInt(0, m_contentHeight - m_viewHeight);
 }
 
 void MenuPanel::OnMouseWheel(int delta)
