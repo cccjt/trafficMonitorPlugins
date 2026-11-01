@@ -6,6 +6,7 @@
 #include <afxdialogex.h>
 #include <map>
 #include <sstream>
+#include <stdlib.h>
 
 IMPLEMENT_DYNAMIC(COptionsDialog, CDialogEx)
 
@@ -25,6 +26,8 @@ void COptionsDialog::DoDataExchange(CDataExchange* pDX)
 {
     CDialogEx::DoDataExchange(pDX);
     DDX_Control(pDX, IDC_LIST_MENU_ITEMS, m_list);
+    DDX_Control(pDX, IDC_EDIT_PANEL_WIDTH, m_editPanelWidth);
+    DDX_Control(pDX, IDC_COMBO_TILE_COLUMNS, m_comboTileColumns);
 }
 
 BEGIN_MESSAGE_MAP(COptionsDialog, CDialogEx)
@@ -53,6 +56,22 @@ BOOL COptionsDialog::OnInitDialog()
     m_list.InsertColumn(3, L"脚本预览", LVCFMT_LEFT, 150);
     m_list.InsertColumn(4, L"状态", LVCFMT_CENTER, 45);
     m_list.InsertColumn(5, L"菜单", LVCFMT_CENTER, 45);
+
+    // 面板宽度与平铺列数
+    CString widthText;
+    widthText.Format(L"%d", m_config.GetPanelWidth());
+    m_editPanelWidth.SetWindowTextW(widthText);
+
+    for (int columns = 2; columns <= 8; ++columns)
+    {
+        CString text;
+        text.Format(L"%d", columns);
+        m_comboTileColumns.AddString(text);
+    }
+    int columnIndex = m_config.GetTileColumns() - 2;
+    if (columnIndex < 0 || columnIndex >= m_comboTileColumns.GetCount())
+        columnIndex = 2;    // 默认 4
+    m_comboTileColumns.SetCurSel(columnIndex);
 
     RefreshList();
     UpdateButtons();
@@ -286,6 +305,15 @@ void COptionsDialog::OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult)
 
 void COptionsDialog::OnBnClickedOk()
 {
+    // 面板宽度:非法或越界时由 SetPanelWidth 恢复默认
+    CString widthText;
+    m_editPanelWidth.GetWindowTextW(widthText);
+    m_config.SetPanelWidth(_wtoi(widthText));
+
+    // 平铺每行列数
+    int columnIndex = m_comboTileColumns.GetCurSel();
+    m_config.SetTileColumns(columnIndex >= 0 ? columnIndex + 2 : 4);
+
     // 将编辑结果写回配置
     m_config.GetItems() = m_items;
     m_config.Save();

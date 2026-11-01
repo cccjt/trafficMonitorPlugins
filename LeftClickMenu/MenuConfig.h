@@ -61,6 +61,14 @@ public:
     // 统计信息(启用且显示在左键菜单中的非分隔线项)
     int GetVisibleMenuCount() const;
 
+    // 面板显示设置
+    int GetPanelWidth() const { return m_panelWidth; }          // 96 DPI 下的宽度像素
+    void SetPanelWidth(int width);                              // 越界时恢复默认值
+    int GetTileColumns() const { return m_tileColumns; }        // 平铺模式每行列数
+    void SetTileColumns(int columns);                           // 越界时恢复默认值
+    bool IsTileMode() const { return m_viewMode == 1; }         // 是否平铺显示
+    void SetTileMode(bool tileMode) { m_viewMode = tileMode ? 1 : 0; }
+
     // 一次性导入旧版 HotkeyPlugin.ini
     // 脚本相同的项合并并挂上热键,其余热键项追加为菜单项
     // 存在旧配置文件(且尚未迁移)时返回 true,调用方负责备份旧文件并保存配置
@@ -70,6 +78,10 @@ private:
     std::wstring m_configPath;                  // 配置文件完整路径
     std::vector<MenuConfigItem> m_items;        // 菜单项列表
     bool m_legacyImported = false;              // 是否已经完成旧热键配置迁移
+
+    int m_panelWidth = 200;                     // 面板宽度(96 DPI 像素)
+    int m_tileColumns = 4;                      // 平铺模式每行列数
+    int m_viewMode = 0;                         // 显示模式:0 列表,1 平铺
 
     // INI 读写辅助
     std::wstring ReadString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultVal) const;

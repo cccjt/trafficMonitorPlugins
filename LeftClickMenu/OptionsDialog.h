@@ -50,4 +50,6 @@ private:
     // 控件
     CListCtrl m_list;
     CImageList m_imageList;                     // 列表中的菜单项图标
+    CEdit m_editPanelWidth;                     // 面板宽度
+    CComboBox m_comboTileColumns;               // 平铺每行列数
 };

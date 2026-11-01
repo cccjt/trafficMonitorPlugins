@@ -3,8 +3,16 @@
 #include <vector>
 #include "MenuConfig.h"
 
+// 面板显示设置(由配置传入)
+struct MenuViewOptions
+{
+    int panelWidth = 200;       // 96 DPI 下的面板宽度像素
+    bool tileMode = false;      // 是否使用平铺显示
+    int tileColumns = 4;        // 平铺模式每行列数(2~8)
+};
+
 // 自绘菜单面板:替代系统 TrackPopupMenu
-// 支持标题栏(编辑齿轮 + 关闭按钮)、菜单项图标、悬停高亮、键盘上下选择、点击外部关闭
+// 支持标题栏(显示模式切换 + 编辑齿轮 + 关闭按钮)、菜单项图标、悬停高亮、键盘选择、点击外部关闭
 class MenuPanel
 {
 public:
@@ -12,13 +20,16 @@ public:
     {
         int selectedIndex = -1;         // 选中的菜单项索引,未选择为 -1
         bool editRequested = false;     // 是否点击了标题栏的编辑齿轮
+        bool viewModeChanged = false;   // 是否点击了列表/平铺切换按钮
+        bool tileMode = false;          // 切换后的显示模式
     };
 
     // items: 菜单项配置
     // hOwner: 面板的 owner 窗口(任务栏窗口)
     // screenX/screenY: 弹出位置(屏幕坐标)
+    // options: 面板宽度、显示模式与每行列数
     static Result Show(const std::vector<MenuConfigItem>& items, HWND hOwner,
-        int screenX, int screenY);
+        int screenX, int screenY, const MenuViewOptions& options);
 
 private:
     MenuPanel();
@@ -29,7 +40,7 @@ private:
 
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-    bool Create(HWND hOwner, int screenX, int screenY);
+    bool Create(HWND hOwner, int screenX, int screenY, const MenuViewOptions& options);
     void RunMessageLoop();
     void Close();
 
@@ -37,23 +48,37 @@ private:
     void Paint(HDC hdc);
     void DrawHeader(HDC hdc);
     void DrawItems(HDC hdc);
+    void DrawTileItems(HDC hdc);
     void DrawItemRow(HDC hdc, int index, const RECT& rowRect, bool hovered, bool selected);
+    void DrawTileCell(HDC hdc, int index, const RECT& cellRect, bool hovered, bool selected);
     void DrawSeparator(HDC hdc, const RECT& rc);
     void DrawSlidersIcon(HDC hdc, const RECT& rc, COLORREF color);
+    void DrawTileIcon(HDC hdc, const RECT& rc, COLORREF color);
+    void DrawListIcon(HDC hdc, const RECT& rc, COLORREF color);
     void DrawCloseIcon(HDC hdc, const RECT& rc, COLORREF color);
     void DrawItemIcon(HDC hdc, int index, const RECT& rc, bool disabled);
 
     // 布局与命中
+    RECT GetToggleRect() const;
     RECT GetGearRect() const;
     RECT GetCloseRect() const;
     int GetItemAtPoint(POINT pt) const;
+    bool PointInToggle(POINT pt) const;
     bool PointInGear(POINT pt) const;
     bool PointInClose(POINT pt) const;
-    int FindNextItem(int from, int dir) const;
+    int FindNextItem(int from, int delta) const;
     void EnsureItemVisible(int index);
     void UpdateHover(POINT pt);
     void Invalidate() const;
     int MaxScroll() const;
+
+    // 平铺布局辅助
+    void UpdateTileMetrics();
+    int CalculateContentHeight() const;
+    void UpdateLayoutAfterModeChange();
+    void ToggleViewMode();
+    int TilePositionToItemIndex(int position) const;
+    int ItemIndexToTilePosition(int index) const;
 
     void OnMouseWheel(int delta);
     void ActivateItem(int index);
@@ -68,12 +93,14 @@ private:
     bool m_mouseDown = false;
     POINT m_mouseDownPoint = { 0, 0 };
     int m_pressedItem = -1;
+    bool m_pressedToggle = false;
     bool m_pressedGear = false;
     bool m_pressedClose = false;
 
     Result m_result;
 
     int m_hoverItem = -1;
+    bool m_hoverToggle = false;
     bool m_hoverGear = false;
     bool m_hoverClose = false;
     bool m_trackingLeave = false;
@@ -94,6 +121,17 @@ private:
     int m_viewHeight = 0;
     int m_contentHeight = 0;
     int m_scroll = 0;
+    int m_screenX = 0;
+    int m_screenY = 0;
+    int m_maxBodyHeight = 0;
+
+    bool m_tileMode = false;
+    int m_tileColumns = 4;
+    int m_configuredWidth = 200;
+    int m_tileGap = 0;
+    int m_tileIconSize = 0;
+    int m_tileCellWidth = 0;
+    int m_tileCellHeight = 0;
 
     HFONT m_font = nullptr;
     HFONT m_titleFont = nullptr;

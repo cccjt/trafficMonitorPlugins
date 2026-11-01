@@ -100,11 +100,11 @@ MenuPanel::~MenuPanel()
 }
 
 MenuPanel::Result MenuPanel::Show(const std::vector<MenuConfigItem>& items, HWND hOwner,
-    int screenX, int screenY)
+    int screenX, int screenY, const MenuViewOptions& options)
 {
     MenuPanel panel;
     panel.m_items = &items;
-    if (!panel.Create(hOwner, screenX, screenY))
+    if (!panel.Create(hOwner, screenX, screenY, options))
     {
         Logger::Instance().Warn(L"MenuPanel::Show: 面板创建失败");
         return Result();
@@ -114,10 +114,20 @@ MenuPanel::Result MenuPanel::Show(const std::vector<MenuConfigItem>& items, HWND
     return panel.m_result;
 }
 
-bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
+bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOptions& options)
 {
     m_hOwner = hOwner;
+    m_screenX = screenX;
+    m_screenY = screenY;
     m_dpi = GetWindowDpi(hOwner);
+
+    // 显示设置
+    m_tileMode = options.tileMode;
+    m_tileColumns = options.tileColumns;
+    if (m_tileColumns < 2) m_tileColumns = 2;
+    if (m_tileColumns > 8) m_tileColumns = 8;
+    m_configuredWidth = options.panelWidth;
+    if (m_configuredWidth < 160 || m_configuredWidth > 600) m_configuredWidth = 200;
 
     // 字体
     LOGFONTW lf = { 0 };
@@ -171,44 +181,14 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
     m_paddingY = ::MulDiv(4, m_dpi, 96);
     m_iconSize = ::MulDiv(16, m_dpi, 96);
     m_iconGap = ::MulDiv(8, m_dpi, 96);
+    m_tileGap = ::MulDiv(4, m_dpi, 96);
+    m_tileIconSize = ::MulDiv(24, m_dpi, 96);
+    m_tileCellHeight = ::MulDiv(58, m_dpi, 96);
 
-    const int minWidth = ::MulDiv(200, m_dpi, 96);
-    const int buttonSize = ::MulDiv(28, m_dpi, 96);
-    const int buttonGap = ::MulDiv(4, m_dpi, 96);
-    const int padRight = ::MulDiv(8, m_dpi, 96);
-    const int rightPadding = ::MulDiv(16, m_dpi, 96);
-
-    // 测量文字宽度
-    int maxTextWidth = 0;
-    int titleWidth = 0;
-    HDC hdc = ::GetDC(nullptr);
-    if (hdc != nullptr)
-    {
-        HFONT oldFont = static_cast<HFONT>(::SelectObject(hdc, m_font));
-        for (const auto& item : *m_items)
-        {
-            if (item.isSeparator) continue;
-            SIZE size = { 0, 0 };
-            if (::GetTextExtentPoint32W(hdc, item.name.c_str(),
-                    static_cast<int>(item.name.size()), &size))
-            {
-                maxTextWidth = MaxInt(maxTextWidth, static_cast<int>(size.cx));
-            }
-        }
-
-        ::SelectObject(hdc, m_titleFont);
-        SIZE titleSize = { 0, 0 };
-        if (::GetTextExtentPoint32W(hdc, kPanelTitle, static_cast<int>(wcslen(kPanelTitle)), &titleSize))
-        {
-            titleWidth = static_cast<int>(titleSize.cx);
-        }
-        ::SelectObject(hdc, oldFont);
-        ::ReleaseDC(nullptr, hdc);
-    }
-
-    int itemWidth = m_paddingX * 2 + m_iconSize + m_iconGap + maxTextWidth + rightPadding;
-    int headerWidth = m_paddingX * 2 + titleWidth + m_iconGap * 2 + buttonSize * 2 + buttonGap;
-    m_width = MaxInt(minWidth, MaxInt(itemWidth, headerWidth));
+    // 面板宽度来自配置(96 DPI 像素),按 DPI 缩放
+    const int minConfiguredWidth = ::MulDiv(160, m_dpi, 96);
+    m_width = ::MulDiv(m_configuredWidth, m_dpi, 96);
+    if (m_width < minConfiguredWidth) m_width = minConfiguredWidth;
 
     POINT pt = { screenX, screenY };
     MONITORINFO monitorInfo = { sizeof(MONITORINFO) };
@@ -223,18 +203,16 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
         m_width = workWidth;
     }
 
+    // 平铺格子尺寸
+    UpdateTileMetrics();
+
     // 内容高度
-    m_contentHeight = m_paddingY * 2;
-    for (const auto& item : *m_items)
-    {
-        m_contentHeight += item.isSeparator ? m_sepHeight : m_rowHeight;
-    }
+    m_contentHeight = CalculateContentHeight();
 
     const bool empty = IsEmptyMenu(*m_items);
     const int emptyViewHeight = kUseSystemCaption
         ? ::MulDiv(8, m_dpi, 96)
         : ::MulDiv(40, m_dpi, 96);
-    const int desiredBodyHeight = empty ? emptyViewHeight : m_contentHeight;
 
     DWORD style = WS_POPUP;
     DWORD exStyle = WS_EX_TOPMOST | WS_EX_TOOLWINDOW;
@@ -249,20 +227,25 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
     const int nonClientHeight = probe.bottom - probe.top;
 
     int maxClientHeight = work.bottom - work.top - margin * 2 - nonClientHeight;
-    int bodyAvailable = maxClientHeight - (kUseSystemCaption ? m_gearRowHeight : m_headerHeight);
-    if (bodyAvailable < 0) bodyAvailable = 0;
+    const int headerHeight = kUseSystemCaption ? m_gearRowHeight : m_headerHeight;
+    m_maxBodyHeight = maxClientHeight - headerHeight;
+    if (m_maxBodyHeight < 0) m_maxBodyHeight = 0;
 
-    m_viewHeight = MinInt(desiredBodyHeight, bodyAvailable);
     if (empty)
     {
-        m_viewHeight = MaxInt(0, MinInt(emptyViewHeight, bodyAvailable));
+        m_contentHeight = emptyViewHeight;
+        m_viewHeight = MaxInt(0, MinInt(emptyViewHeight, m_maxBodyHeight));
         m_contentHeight = m_viewHeight;
+    }
+    else
+    {
+        m_viewHeight = MinInt(m_contentHeight, m_maxBodyHeight);
     }
     m_scroll = 0;
 
-    int clientHeight = (kUseSystemCaption ? m_gearRowHeight : m_headerHeight) + m_viewHeight;
+    int clientHeight = headerHeight + m_viewHeight;
     m_height = clientHeight;
-    m_bodyTop = kUseSystemCaption ? m_gearRowHeight : m_headerHeight;
+    m_bodyTop = headerHeight;
 
     RECT winRect = { 0, 0, m_width, clientHeight };
     AdjustWindowRectForDpi(&winRect, style, FALSE, exStyle, m_dpi);
@@ -320,10 +303,166 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY)
         }
     }
 
+    m_result.tileMode = m_tileMode;
+
     Logger::Instance().Info(L"MenuPanel: 显示面板, 菜单项="
-        + std::to_wstring(m_items->size()) + L", 尺寸="
+        + std::to_wstring(m_items->size()) + L", 平铺="
+        + (m_tileMode ? L"是" : L"否") + L", 尺寸="
         + std::to_wstring(winWidth) + L"x" + std::to_wstring(winHeight));
     return true;
+}
+
+void MenuPanel::UpdateTileMetrics()
+{
+    int contentWidth = m_width - m_paddingX * 2;
+    if (contentWidth < 1) contentWidth = 1;
+
+    int totalGap = m_tileGap * (m_tileColumns - 1);
+    m_tileCellWidth = (contentWidth - totalGap) / m_tileColumns;
+    if (m_tileCellWidth < 1) m_tileCellWidth = 1;
+}
+
+int MenuPanel::CalculateContentHeight() const
+{
+    if (m_tileMode)
+    {
+        int count = 0;
+        if (m_items != nullptr)
+        {
+            for (const auto& item : *m_items)
+            {
+                if (!item.isSeparator) ++count;
+            }
+        }
+        int rows = (count + m_tileColumns - 1) / m_tileColumns;
+        return m_paddingY * 2 + rows * m_tileCellHeight;
+    }
+
+    int height = m_paddingY * 2;
+    if (m_items != nullptr)
+    {
+        for (const auto& item : *m_items)
+        {
+            height += item.isSeparator ? m_sepHeight : m_rowHeight;
+        }
+    }
+    return height;
+}
+
+void MenuPanel::UpdateLayoutAfterModeChange()
+{
+    if (m_hWnd == nullptr || !::IsWindow(m_hWnd)) return;
+
+    UpdateTileMetrics();
+    m_contentHeight = CalculateContentHeight();
+
+    const bool empty = IsEmptyMenu(*m_items);
+    const int emptyViewHeight = kUseSystemCaption
+        ? ::MulDiv(8, m_dpi, 96)
+        : ::MulDiv(40, m_dpi, 96);
+
+    if (empty)
+    {
+        m_viewHeight = MaxInt(0, MinInt(emptyViewHeight, m_maxBodyHeight));
+        m_contentHeight = m_viewHeight;
+    }
+    else
+    {
+        m_viewHeight = MinInt(m_contentHeight, m_maxBodyHeight);
+    }
+    m_scroll = 0;
+
+    const int headerHeight = kUseSystemCaption ? m_gearRowHeight : m_headerHeight;
+    int clientHeight = headerHeight + m_viewHeight;
+    m_height = clientHeight;
+    m_bodyTop = headerHeight;
+
+    DWORD style = WS_POPUP;
+    DWORD exStyle = WS_EX_TOPMOST | WS_EX_TOOLWINDOW;
+    if (kUseSystemCaption)
+    {
+        style |= WS_CAPTION | WS_SYSMENU;
+    }
+
+    RECT winRect = { 0, 0, m_width, clientHeight };
+    AdjustWindowRectForDpi(&winRect, style, FALSE, exStyle, m_dpi);
+    int winWidth = winRect.right - winRect.left;
+    int winHeight = winRect.bottom - winRect.top;
+
+    POINT pt = { m_screenX, m_screenY };
+    MONITORINFO monitorInfo = { sizeof(MONITORINFO) };
+    HMONITOR hMonitor = ::MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    ::GetMonitorInfoW(hMonitor, &monitorInfo);
+    const RECT work = monitorInfo.rcWork;
+    const int margin = ::MulDiv(8, m_dpi, 96);
+
+    int left = m_screenX + margin;
+    int top = m_screenY + margin;
+    if (left + winWidth > work.right) left = m_screenX - winWidth - margin;
+    if (top + winHeight > work.bottom) top = m_screenY - winHeight - margin;
+    if (left < work.left) left = work.left;
+    if (top < work.top) top = work.top;
+    if (left + winWidth > work.right) left = work.right - winWidth;
+    if (top + winHeight > work.bottom) top = work.bottom - winHeight;
+
+    ::SetWindowPos(m_hWnd, nullptr, left, top, winWidth, winHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+
+    if (!kUseSystemCaption)
+    {
+        int radius = ::MulDiv(8, m_dpi, 96);
+        HRGN hRegion = ::CreateRoundRectRgn(0, 0, m_width + 1, m_height + 1, radius, radius);
+        if (hRegion != nullptr)
+        {
+            ::SetWindowRgn(m_hWnd, hRegion, TRUE);
+        }
+    }
+
+    m_result.tileMode = m_tileMode;
+    Invalidate();
+}
+
+void MenuPanel::ToggleViewMode()
+{
+    m_tileMode = !m_tileMode;
+    m_hoverItem = -1;
+    m_selectedItem = -1;
+    m_result.viewModeChanged = true;
+    m_result.tileMode = m_tileMode;
+
+    Logger::Instance().Info(L"MenuPanel: 切换显示模式为"
+        + std::wstring(m_tileMode ? L"平铺" : L"列表"));
+
+    UpdateLayoutAfterModeChange();
+}
+
+int MenuPanel::TilePositionToItemIndex(int position) const
+{
+    if (m_items == nullptr || position < 0) return -1;
+
+    int tilePos = 0;
+    for (size_t i = 0; i < m_items->size(); ++i)
+    {
+        if ((*m_items)[i].isSeparator) continue;
+        if (tilePos == position) return static_cast<int>(i);
+        ++tilePos;
+    }
+    return -1;
+}
+
+int MenuPanel::ItemIndexToTilePosition(int index) const
+{
+    if (m_items == nullptr || index < 0 || index >= static_cast<int>(m_items->size()))
+        return -1;
+
+    int tilePos = 0;
+    for (int i = 0; i < static_cast<int>(m_items->size()); ++i)
+    {
+        if ((*m_items)[i].isSeparator) continue;
+        if (i == index) return tilePos;
+        ++tilePos;
+    }
+    return -1;
 }
 
 void MenuPanel::RunMessageLoop()
@@ -419,7 +558,7 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         POINT pt = { 0, 0 };
         ::GetCursorPos(&pt);
         ::ScreenToClient(hWnd, &pt);
-        if (self->PointInGear(pt) || self->PointInClose(pt))
+        if (self->PointInToggle(pt) || self->PointInGear(pt) || self->PointInClose(pt))
         {
             ::SetCursor(::LoadCursorW(nullptr, IDC_HAND));
         }
@@ -447,9 +586,11 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
     case WM_MOUSELEAVE:
         self->m_trackingLeave = false;
-        if (self->m_hoverItem != -1 || self->m_hoverGear || self->m_hoverClose)
+        if (self->m_hoverItem != -1 || self->m_hoverToggle
+            || self->m_hoverGear || self->m_hoverClose)
         {
             self->m_hoverItem = -1;
+            self->m_hoverToggle = false;
             self->m_hoverGear = false;
             self->m_hoverClose = false;
             self->Invalidate();
@@ -470,10 +611,12 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         self->m_mouseDown = true;
         self->m_mouseDownPoint = pt;
-        self->m_pressedGear = self->PointInGear(pt);
-        self->m_pressedClose = !self->m_pressedGear && self->PointInClose(pt);
-        self->m_pressedItem = (!self->m_pressedGear && !self->m_pressedClose)
-            ? self->GetItemAtPoint(pt) : -1;
+        self->m_pressedToggle = self->PointInToggle(pt);
+        self->m_pressedGear = !self->m_pressedToggle && self->PointInGear(pt);
+        self->m_pressedClose = !self->m_pressedToggle && !self->m_pressedGear
+            && self->PointInClose(pt);
+        self->m_pressedItem = (!self->m_pressedToggle && !self->m_pressedGear
+            && !self->m_pressedClose) ? self->GetItemAtPoint(pt) : -1;
         self->UpdateHover(pt);
         return 0;
     }
@@ -489,6 +632,7 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         if (!::PtInRect(&clientRect, pt))
         {
             self->m_pressedItem = -1;
+            self->m_pressedToggle = false;
             self->m_pressedGear = false;
             self->m_pressedClose = false;
             self->Close();
@@ -496,6 +640,12 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         }
 
         self->UpdateHover(pt);
+        if (self->m_pressedToggle && self->PointInToggle(pt))
+        {
+            self->m_pressedToggle = false;
+            self->ToggleViewMode();
+            return 0;
+        }
         if (self->m_pressedGear && self->PointInGear(pt))
         {
             self->m_result.editRequested = true;
@@ -518,6 +668,7 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         }
 
         self->m_pressedItem = -1;
+        self->m_pressedToggle = false;
         self->m_pressedGear = false;
         self->m_pressedClose = false;
         return 0;
@@ -534,13 +685,32 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
             self->Close();
             return 0;
         }
-        if (wParam == VK_UP || wParam == VK_DOWN)
+        // 列表模式上下移动;平铺模式上下移动一行,左右移动一个格子
+        int delta = 0;
+        if (wParam == VK_UP)
         {
-            int direction = (wParam == VK_UP) ? -1 : 1;
+            delta = self->m_tileMode ? -self->m_tileColumns : -1;
+        }
+        else if (wParam == VK_DOWN)
+        {
+            delta = self->m_tileMode ? self->m_tileColumns : 1;
+        }
+        else if (self->m_tileMode && wParam == VK_LEFT)
+        {
+            delta = -1;
+        }
+        else if (self->m_tileMode && wParam == VK_RIGHT)
+        {
+            delta = 1;
+        }
+
+        if (delta != 0)
+        {
             self->m_hoverItem = -1;
+            self->m_hoverToggle = false;
             self->m_hoverGear = false;
             self->m_hoverClose = false;
-            self->m_selectedItem = self->FindNextItem(self->m_selectedItem, direction);
+            self->m_selectedItem = self->FindNextItem(self->m_selectedItem, delta);
             self->EnsureItemVisible(self->m_selectedItem);
             self->Invalidate();
             return 0;
@@ -614,8 +784,21 @@ void MenuPanel::DrawHeader(HDC hdc)
 
     if (kUseSystemCaption)
     {
-        // 方案 A:系统标题栏自带关闭按钮,这里只画齿轮
+        // 方案 A:系统标题栏自带关闭按钮,这里只画切换按钮和齿轮
+        RECT toggleRect = GetToggleRect();
         RECT gearRect = GetGearRect();
+        if (m_hoverToggle)
+        {
+            FillRoundedRect(hdc, toggleRect, m_hoverColor, radius);
+        }
+        if (m_tileMode)
+        {
+            DrawListIcon(hdc, toggleRect, m_buttonColor);
+        }
+        else
+        {
+            DrawTileIcon(hdc, toggleRect, m_buttonColor);
+        }
         if (m_hoverGear)
         {
             FillRoundedRect(hdc, gearRect, m_hoverColor, radius);
@@ -625,15 +808,32 @@ void MenuPanel::DrawHeader(HDC hdc)
     }
 
     // 方案 B:自绘标题栏
+    RECT toggleRect = GetToggleRect();
     RECT gearRect = GetGearRect();
     RECT closeRect = GetCloseRect();
 
-    RECT titleRect = { m_paddingX, 0, gearRect.left - m_iconGap, m_headerHeight };
-    HFONT oldFont = static_cast<HFONT>(::SelectObject(hdc, m_titleFont));
-    ::SetTextColor(hdc, m_textColor);
-    ::DrawTextW(hdc, kPanelTitle, -1, &titleRect,
-        DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
-    ::SelectObject(hdc, oldFont);
+    RECT titleRect = { m_paddingX, 0, toggleRect.left - m_iconGap, m_headerHeight };
+    if (titleRect.right > titleRect.left)
+    {
+        HFONT oldFont = static_cast<HFONT>(::SelectObject(hdc, m_titleFont));
+        ::SetTextColor(hdc, m_textColor);
+        ::DrawTextW(hdc, kPanelTitle, -1, &titleRect,
+            DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
+        ::SelectObject(hdc, oldFont);
+    }
+
+    if (m_hoverToggle)
+    {
+        FillRoundedRect(hdc, toggleRect, m_hoverColor, radius);
+    }
+    if (m_tileMode)
+    {
+        DrawListIcon(hdc, toggleRect, m_buttonColor);
+    }
+    else
+    {
+        DrawTileIcon(hdc, toggleRect, m_buttonColor);
+    }
 
     if (m_hoverGear)
     {
@@ -663,6 +863,12 @@ void MenuPanel::DrawItems(HDC hdc)
 {
     if (m_items == nullptr || m_items->empty() || m_viewHeight <= 0)
     {
+        return;
+    }
+
+    if (m_tileMode)
+    {
+        DrawTileItems(hdc);
         return;
     }
 
@@ -716,6 +922,68 @@ void MenuPanel::DrawItemRow(HDC hdc, int index, const RECT& rowRect, bool hovere
     ::SelectObject(hdc, oldFont);
 }
 
+void MenuPanel::DrawTileItems(HDC hdc)
+{
+    int saved = ::SaveDC(hdc);
+    ::IntersectClipRect(hdc, 0, m_bodyTop, m_width, m_bodyTop + m_viewHeight);
+
+    int tilePos = 0;
+    for (size_t i = 0; i < m_items->size(); ++i)
+    {
+        const MenuConfigItem& item = (*m_items)[i];
+        // 平铺模式不显示分隔线
+        if (item.isSeparator) continue;
+
+        int row = tilePos / m_tileColumns;
+        int column = tilePos % m_tileColumns;
+        int x = m_paddingX + column * (m_tileCellWidth + m_tileGap);
+        int y = m_bodyTop + m_paddingY - m_scroll + row * m_tileCellHeight;
+
+        RECT cellRect = { x, y, x + m_tileCellWidth, y + m_tileCellHeight };
+        DrawTileCell(hdc, static_cast<int>(i), cellRect,
+            static_cast<int>(i) == m_hoverItem,
+            static_cast<int>(i) == m_selectedItem);
+
+        ++tilePos;
+    }
+
+    ::RestoreDC(hdc, saved);
+}
+
+void MenuPanel::DrawTileCell(HDC hdc, int index, const RECT& cellRect,
+    bool hovered, bool selected)
+{
+    const MenuConfigItem& item = (*m_items)[index];
+    bool disabled = !item.enabled;
+
+    if ((hovered || selected) && item.enabled)
+    {
+        int inset = ::MulDiv(2, m_dpi, 96);
+        RECT hoverRect = { cellRect.left + inset, cellRect.top + inset,
+            cellRect.right - inset, cellRect.bottom - inset };
+        FillRoundedRect(hdc, hoverRect, m_hoverColor, ::MulDiv(4, m_dpi, 96));
+    }
+
+    int cellWidth = cellRect.right - cellRect.left;
+    int iconSize = MinInt(m_tileIconSize, cellWidth - ::MulDiv(4, m_dpi, 96));
+    if (iconSize < ::MulDiv(8, m_dpi, 96)) iconSize = ::MulDiv(8, m_dpi, 96);
+
+    int iconX = cellRect.left + (cellWidth - iconSize) / 2;
+    int iconY = cellRect.top + ::MulDiv(6, m_dpi, 96);
+    RECT iconRect = { iconX, iconY, iconX + iconSize, iconY + iconSize };
+    DrawItemIcon(hdc, index, iconRect, disabled);
+
+    int pad = ::MulDiv(2, m_dpi, 96);
+    RECT textRect = { cellRect.left + pad, iconRect.bottom + pad,
+        cellRect.right - pad, cellRect.bottom - ::MulDiv(3, m_dpi, 96) };
+
+    HFONT oldFont = static_cast<HFONT>(::SelectObject(hdc, m_font));
+    ::SetTextColor(hdc, disabled ? m_disabledColor : m_textColor);
+    ::DrawTextW(hdc, item.name.c_str(), -1, &textRect,
+        DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX | DT_END_ELLIPSIS);
+    ::SelectObject(hdc, oldFont);
+}
+
 void MenuPanel::DrawSeparator(HDC hdc, const RECT& rc)
 {
     int y = (rc.top + rc.bottom) / 2;
@@ -763,6 +1031,61 @@ void MenuPanel::DrawSlidersIcon(HDC hdc, const RECT& rc, COLORREF color)
     ::DeleteObject(pen);
 }
 
+void MenuPanel::DrawTileIcon(HDC hdc, const RECT& rc, COLORREF color)
+{
+    // 2x2 方块图标,表示平铺视图
+    int inset = ::MulDiv(7, m_dpi, 96);
+    int gap = ::MulDiv(2, m_dpi, 96);
+    int size = (rc.right - rc.left - inset * 2 - gap) / 2;
+    if (size < 1) size = 1;
+
+    int left = rc.left + inset;
+    int top = rc.top + (rc.bottom - rc.top - size * 2 - gap) / 2;
+
+    HBRUSH brush = ::CreateSolidBrush(color);
+    int xs[2] = { left, left + size + gap };
+    int ys[2] = { top, top + size + gap };
+    for (int row = 0; row < 2; ++row)
+    {
+        for (int col = 0; col < 2; ++col)
+        {
+            RECT block = { xs[col], ys[row], xs[col] + size, ys[row] + size };
+            ::FillRect(hdc, &block, brush);
+        }
+    }
+    ::DeleteObject(brush);
+}
+
+void MenuPanel::DrawListIcon(HDC hdc, const RECT& rc, COLORREF color)
+{
+    // 三条横线图标,表示列表视图
+    int inset = ::MulDiv(7, m_dpi, 96);
+    int bullet = ::MulDiv(3, m_dpi, 96);
+    int lineHeight = MaxInt(1, ::MulDiv(1, m_dpi, 96));
+    int left = rc.left + inset;
+    int right = rc.right - inset;
+    int width = rc.bottom - rc.top;
+
+    HPEN pen = ::CreatePen(PS_SOLID, lineHeight, color);
+    HGDIOBJ oldPen = ::SelectObject(hdc, pen);
+    HBRUSH brush = ::CreateSolidBrush(color);
+    HGDIOBJ oldBrush = ::SelectObject(hdc, brush);
+
+    for (int i = 0; i < 3; ++i)
+    {
+        int y = rc.top + width * (i + 1) / 4;
+        RECT dot = { left, y - bullet / 2, left + bullet, y - bullet / 2 + bullet };
+        ::FillRect(hdc, &dot, brush);
+        ::MoveToEx(hdc, left + bullet + ::MulDiv(3, m_dpi, 96), y, nullptr);
+        ::LineTo(hdc, right, y);
+    }
+
+    ::SelectObject(hdc, oldBrush);
+    ::DeleteObject(brush);
+    ::SelectObject(hdc, oldPen);
+    ::DeleteObject(pen);
+}
+
 void MenuPanel::DrawCloseIcon(HDC hdc, const RECT& rc, COLORREF color)
 {
     int inset = ::MulDiv(7, m_dpi, 96);
@@ -793,6 +1116,20 @@ void MenuPanel::DrawItemIcon(HDC hdc, int index, const RECT& rc, bool disabled)
         ::DrawIconEx(hdc, rc.left, rc.top, hIcon, rc.right - rc.left, rc.bottom - rc.top,
             0, nullptr, DI_NORMAL);
     }
+}
+
+RECT MenuPanel::GetToggleRect() const
+{
+    int buttonSize = ::MulDiv(28, m_dpi, 96);
+    int buttonGap = ::MulDiv(4, m_dpi, 96);
+    RECT gearRect = GetGearRect();
+
+    RECT rc = { 0, 0, 0, 0 };
+    rc.left = gearRect.left - buttonGap - buttonSize;
+    rc.top = gearRect.top;
+    rc.right = rc.left + buttonSize;
+    rc.bottom = rc.top + buttonSize;
+    return rc;
 }
 
 RECT MenuPanel::GetGearRect() const
@@ -830,6 +1167,12 @@ RECT MenuPanel::GetCloseRect() const
     return rc;
 }
 
+bool MenuPanel::PointInToggle(POINT pt) const
+{
+    RECT rc = GetToggleRect();
+    return ::PtInRect(&rc, pt) != FALSE;
+}
+
 bool MenuPanel::PointInGear(POINT pt) const
 {
     RECT rc = GetGearRect();
@@ -847,6 +1190,23 @@ int MenuPanel::GetItemAtPoint(POINT pt) const
     if (m_items == nullptr) return -1;
     if (pt.y < m_bodyTop || pt.y >= m_bodyTop + m_viewHeight) return -1;
     if (pt.x < 0 || pt.x >= m_width) return -1;
+
+    if (m_tileMode)
+    {
+        int relY = pt.y - (m_bodyTop + m_paddingY - m_scroll);
+        if (relY < 0) return -1;
+
+        int row = relY / m_tileCellHeight;
+        int relX = pt.x - m_paddingX;
+        if (relX < 0) return -1;
+
+        int step = m_tileCellWidth + m_tileGap;
+        int column = relX / step;
+        if (column < 0 || column >= m_tileColumns) return -1;
+        if (relX % step >= m_tileCellWidth) return -1;
+
+        return TilePositionToItemIndex(row * m_tileColumns + column);
+    }
 
     int y = m_bodyTop + m_paddingY - m_scroll;
     for (size_t i = 0; i < m_items->size(); ++i)
@@ -871,23 +1231,68 @@ bool MenuPanel::IsItemSelectable(int index) const
     return !item.isSeparator && item.enabled;
 }
 
-int MenuPanel::FindNextItem(int from, int dir) const
+int MenuPanel::FindNextItem(int from, int delta) const
 {
-    if (m_items == nullptr || m_items->empty()) return -1;
-    int count = static_cast<int>(m_items->size());
-    for (int step = 1; step <= count; ++step)
+    if (m_items == nullptr) return -1;
+
+    // 只在可选中的项之间移动,平铺模式下分隔线已被跳过
+    std::vector<int> selectable;
+    for (size_t i = 0; i < m_items->size(); ++i)
     {
-        int index = from + dir * step;
-        index %= count;
-        if (index < 0) index += count;
-        if (IsItemSelectable(index)) return index;
+        if (IsItemSelectable(static_cast<int>(i))) selectable.push_back(static_cast<int>(i));
     }
-    return -1;
+    if (selectable.empty()) return -1;
+
+    int position = -1;
+    if (from >= 0)
+    {
+        for (size_t i = 0; i < selectable.size(); ++i)
+        {
+            if (selectable[i] == from)
+            {
+                position = static_cast<int>(i);
+                break;
+            }
+        }
+    }
+
+    if (position < 0)
+    {
+        return delta >= 0 ? selectable.front() : selectable.back();
+    }
+
+    int count = static_cast<int>(selectable.size());
+    int next = position + delta;
+    next %= count;
+    if (next < 0) next += count;
+    return selectable[next];
 }
 
 void MenuPanel::EnsureItemVisible(int index)
 {
     if (index < 0 || m_items == nullptr) return;
+
+    if (m_tileMode)
+    {
+        int position = ItemIndexToTilePosition(index);
+        if (position < 0) return;
+
+        int top = m_paddingY + (position / m_tileColumns) * m_tileCellHeight;
+        int bottom = top + m_tileCellHeight;
+
+        int maxScroll = MaxScroll();
+        if (top < m_scroll)
+        {
+            m_scroll = top;
+        }
+        else if (bottom > m_scroll + m_viewHeight)
+        {
+            m_scroll = bottom - m_viewHeight;
+        }
+        if (m_scroll < 0) m_scroll = 0;
+        if (m_scroll > maxScroll) m_scroll = maxScroll;
+        return;
+    }
 
     int top = m_paddingY;
     for (int i = 0; i < index; ++i)
@@ -911,12 +1316,15 @@ void MenuPanel::EnsureItemVisible(int index)
 
 void MenuPanel::UpdateHover(POINT pt)
 {
-    bool gear = PointInGear(pt);
-    bool close = PointInClose(pt);
-    int item = (gear || close) ? -1 : GetItemAtPoint(pt);
+    bool toggle = PointInToggle(pt);
+    bool gear = !toggle && PointInGear(pt);
+    bool close = !toggle && !gear && PointInClose(pt);
+    int item = (toggle || gear || close) ? -1 : GetItemAtPoint(pt);
 
-    if (gear != m_hoverGear || close != m_hoverClose || item != m_hoverItem)
+    if (toggle != m_hoverToggle || gear != m_hoverGear
+        || close != m_hoverClose || item != m_hoverItem)
     {
+        m_hoverToggle = toggle;
         m_hoverGear = gear;
         m_hoverClose = close;
         m_hoverItem = item;
@@ -947,7 +1355,7 @@ void MenuPanel::OnMouseWheel(int delta)
     int maxScroll = MaxScroll();
     if (maxScroll <= 0) return;
 
-    int step = m_rowHeight * 3;
+    int step = m_tileMode ? m_tileCellHeight * 2 : m_rowHeight * 3;
     if (delta > 0)
     {
         m_scroll -= step;

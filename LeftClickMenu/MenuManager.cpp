@@ -13,17 +13,23 @@ MenuManager::MenuManager() {}
 MenuManager::~MenuManager() {}
 
 int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hWnd, int x, int y,
-    bool* editRequested)
+    const MenuViewOptions& viewOptions, bool* editRequested,
+    bool* viewModeChanged, bool* tileMode)
 {
     if (editRequested != nullptr) *editRequested = false;
+    if (viewModeChanged != nullptr) *viewModeChanged = false;
+    if (tileMode != nullptr) *tileMode = viewOptions.tileMode;
 
     Logger::Instance().Info(L"ShowPopupMenu: 显示菜单面板, 屏幕坐标=("
         + std::to_wstring(x) + L"," + std::to_wstring(y) + L"), 菜单项="
-        + std::to_wstring(items.size()));
+        + std::to_wstring(items.size()) + L", 平铺="
+        + (viewOptions.tileMode ? L"是" : L"否"));
 
-    MenuPanel::Result result = MenuPanel::Show(items, hWnd, x, y);
+    MenuPanel::Result result = MenuPanel::Show(items, hWnd, x, y, viewOptions);
 
     if (editRequested != nullptr) *editRequested = result.editRequested;
+    if (viewModeChanged != nullptr) *viewModeChanged = result.viewModeChanged;
+    if (tileMode != nullptr) *tileMode = result.tileMode;
     if (result.editRequested)
     {
         Logger::Instance().Info(L"ShowPopupMenu: 用户点击了编辑按钮");

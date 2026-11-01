@@ -207,6 +207,20 @@ void MenuConfig::SetConfigPath(const std::wstring& path)
     m_configPath = path;
 }
 
+void MenuConfig::SetPanelWidth(int width)
+{
+    // 宽度限制在 160~600(96 DPI),越界或非法值恢复默认 200
+    if (width < 160 || width > 600) width = 200;
+    m_panelWidth = width;
+}
+
+void MenuConfig::SetTileColumns(int columns)
+{
+    // 每行列数限制在 2~8,越界或非法值恢复默认 4
+    if (columns < 2 || columns > 8) columns = 4;
+    m_tileColumns = columns;
+}
+
 std::wstring MenuConfig::ReadString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultVal) const
 {
     // 脚本代码可能较长,使用 INI API 允许的最大缓冲区
@@ -244,6 +258,11 @@ bool MenuConfig::Load()
     }
 
     m_legacyImported = ReadInt(L"General", L"MergedHotkeys", 0) != 0;
+
+    // 面板显示设置
+    SetPanelWidth(ReadInt(L"General", L"PanelWidth", 200));
+    SetTileColumns(ReadInt(L"General", L"TileColumns", 4));
+    m_viewMode = ReadInt(L"General", L"ViewMode", 0) == 1 ? 1 : 0;
 
     int count = ReadInt(L"General", L"Count", 0);
     if (count <= 0)
@@ -317,6 +336,9 @@ bool MenuConfig::Save() const
     {
         WriteInt(L"General", L"MergedHotkeys", 1);
     }
+    WriteInt(L"General", L"PanelWidth", m_panelWidth);
+    WriteInt(L"General", L"TileColumns", m_tileColumns);
+    WriteInt(L"General", L"ViewMode", m_viewMode);
 
     // 写入每一项
     for (size_t i = 0; i < m_items.size(); ++i)
