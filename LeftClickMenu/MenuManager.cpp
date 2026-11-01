@@ -132,9 +132,21 @@ bool MenuManager::RunScript(const std::wstring& scriptCode)
 int MenuManager::GetIconSize(HWND hWnd) const
 {
     UINT dpi = 96;
-    if (hWnd != nullptr && ::IsWindow(hWnd))
+
+    // 动态获取 GetDpiForWindow,避免在旧系统上因缺少该导出函数导致插件无法加载
+    typedef UINT(WINAPI* GetDpiForWindowFn)(HWND);
+    static GetDpiForWindowFn getDpiForWindow = reinterpret_cast<GetDpiForWindowFn>(
+        ::GetProcAddress(::GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
+
+    if (getDpiForWindow != nullptr && hWnd != nullptr && ::IsWindow(hWnd))
     {
-        dpi = ::GetDpiForWindow(hWnd);
+        dpi = getDpiForWindow(hWnd);
+    }
+    if (dpi == 0)
+    {
+        HDC hdc = ::GetDC(hWnd);
+        dpi = static_cast<UINT>(::GetDeviceCaps(hdc, LOGPIXELSX));
+        ::ReleaseDC(hWnd, hdc);
     }
     if (dpi == 0) dpi = 96;
 

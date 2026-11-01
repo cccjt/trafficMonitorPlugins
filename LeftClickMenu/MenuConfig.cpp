@@ -19,7 +19,7 @@ std::wstring EncodeScript(const std::wstring& script)
     if (script.empty()) return std::wstring();
 
     std::vector<BYTE> data(script.size() * sizeof(wchar_t));
-    memcpy(data.data(), script.data(), data.size());
+    std::memcpy(data.data(), script.data(), data.size());
 
     DWORD base64Length = 0;
     if (!::CryptBinaryToStringW(data.data(), static_cast<DWORD>(data.size()),

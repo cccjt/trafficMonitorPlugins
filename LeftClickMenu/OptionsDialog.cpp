@@ -63,7 +63,22 @@ void COptionsDialog::RefreshList()
     m_list.DeleteAllItems();
 
     // 重建图标列表,尺寸跟随当前窗口 DPI
-    UINT dpi = ::GetDpiForWindow(m_hWnd);
+    // 动态获取 GetDpiForWindow,避免旧系统上因缺少该导出函数导致插件无法加载
+    typedef UINT(WINAPI* GetDpiForWindowFn)(HWND);
+    static GetDpiForWindowFn getDpiForWindow = reinterpret_cast<GetDpiForWindowFn>(
+        ::GetProcAddress(::GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
+
+    UINT dpi = 96;
+    if (getDpiForWindow != nullptr)
+    {
+        dpi = getDpiForWindow(m_hWnd);
+    }
+    if (dpi == 0)
+    {
+        HDC hdc = ::GetDC(m_hWnd);
+        dpi = static_cast<UINT>(::GetDeviceCaps(hdc, LOGPIXELSX));
+        ::ReleaseDC(m_hWnd, hdc);
+    }
     if (dpi == 0) dpi = 96;
     int iconSize = ::MulDiv(16, static_cast<int>(dpi), 96);
     if (iconSize < 16) iconSize = 16;
