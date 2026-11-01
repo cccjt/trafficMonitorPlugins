@@ -930,8 +930,11 @@ void MenuPanel::DrawItemRow(HDC hdc, int index, const RECT& rowRect, bool hovere
         rowRect.top + (m_rowHeight - m_iconSize) / 2 + m_iconSize };
     DrawItemIcon(hdc, index, iconRect, disabled);
 
-    RECT textRect = { iconRect.right + m_iconGap, rowRect.top,
-        rowRect.right - m_paddingX, rowRect.bottom };
+    // DrawText 按字体行高做垂直居中,中文字形视觉重心偏下,
+    // 将文字矩形整体上移少量像素,使文字与图标、行中心视觉对齐
+    const int textOpticalOffset = ::MulDiv(3, m_dpi, 96);
+    RECT textRect = { iconRect.right + m_iconGap, rowRect.top - textOpticalOffset,
+        rowRect.right - m_paddingX, rowRect.bottom - textOpticalOffset };
     HFONT oldFont = static_cast<HFONT>(::SelectObject(hdc, m_font));
     ::SetTextColor(hdc, disabled ? m_disabledColor : m_textColor);
     ::DrawTextW(hdc, item.name.c_str(), -1, &textRect,
