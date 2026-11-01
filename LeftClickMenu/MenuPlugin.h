@@ -2,6 +2,7 @@
 #include "PluginInterface.h"
 #include "MenuConfig.h"
 #include "MenuManager.h"
+#include "HotkeyManager.h"
 #include "MenuItem.h"
 #include "IconManager.h"
 #include "TaskbarOverlay.h"
@@ -44,9 +45,16 @@ private:
     MenuPlugin();
     ~MenuPlugin();
 
+    // 按当前配置重新注册全局热键
+    void RegisterHotkeys();
+
+    // 构造左键菜单中实际显示的项(过滤隐藏项并整理分隔线)
+    std::vector<MenuConfigItem> BuildVisibleMenuItems() const;
+
 private:
     MenuConfig m_config;            // 配置
     MenuManager m_manager;          // 菜单管理器
+    HotkeyManager m_hotkeyManager;  // 全局热键管理器
     MenuItem m_item;                // 显示项目
     ITrafficMonitor* m_pApp = nullptr;  // 主程序接口
 

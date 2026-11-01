@@ -1,8 +1,9 @@
 #pragma once
+#include <Windows.h>
 #include <string>
 #include <vector>
 
-// 单条菜单配置项
+// 单条菜单配置项(同一项既可以显示在左键菜单中,也可以绑定全局热键)
 struct MenuConfigItem
 {
     std::wstring name;          // 菜单项显示名称
@@ -12,8 +13,21 @@ struct MenuConfigItem
     bool enabled = true;        // 是否启用
     bool isSeparator = false;   // 是否为分隔线
 
+    UINT hotkeyModifiers = 0;   // 热键修饰键(MOD_CONTROL/MOD_ALT/MOD_SHIFT/MOD_WIN)
+    UINT hotkeyVk = 0;          // 热键虚拟键码,0 表示未设置热键
+    bool showInMenu = true;     // 是否显示在左键菜单中(仅设置了热键的项可以隐藏)
+
     // 判断是否为分隔线
     bool IsSeparator() const { return isSeparator; }
+
+    // 是否设置了热键
+    bool HasHotkey() const { return !isSeparator && hotkeyVk != 0; }
+
+    // 获取热键显示文本,如 "Ctrl+Alt+P";未设置时返回空字符串
+    std::wstring GetHotkeyString() const { return HotkeyToString(hotkeyModifiers, hotkeyVk); }
+
+    // 将修饰键和虚拟键码转换为显示文本
+    static std::wstring HotkeyToString(UINT modifiers, UINT vk);
 };
 
 // 配置管理类:负责 INI 文件读写
@@ -44,12 +58,18 @@ public:
     void RemoveItem(size_t index);
     void UpdateItem(size_t index, const MenuConfigItem& item);
 
-    // 统计信息(只统计启用的菜单项,不包括分隔线)
-    int GetEnabledCount() const;
+    // 统计信息(启用且显示在左键菜单中的非分隔线项)
+    int GetVisibleMenuCount() const;
+
+    // 一次性导入旧版 HotkeyPlugin.ini
+    // 脚本相同的项合并并挂上热键,其余热键项追加为菜单项
+    // 存在旧配置文件(且尚未迁移)时返回 true,调用方负责备份旧文件并保存配置
+    bool ImportLegacyHotkeyConfig(const std::wstring& hotkeyIniPath);
 
 private:
     std::wstring m_configPath;                  // 配置文件完整路径
     std::vector<MenuConfigItem> m_items;        // 菜单项列表
+    bool m_legacyImported = false;              // 是否已经完成旧热键配置迁移
 
     // INI 读写辅助
     std::wstring ReadString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultVal) const;

@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HotkeyManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="IconManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -57,6 +60,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HotkeyManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="IconManager.cpp">

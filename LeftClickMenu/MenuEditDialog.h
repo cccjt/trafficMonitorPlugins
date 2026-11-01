@@ -21,11 +21,13 @@ public:
 protected:
     virtual void DoDataExchange(CDataExchange* pDX) override;
     virtual BOOL OnInitDialog() override;
+    virtual BOOL PreTranslateMessage(MSG* pMsg) override;
 
     // 消息映射
     afx_msg void OnBnClickedBrowseIcon();
     afx_msg void OnBnClickedSeparator();
     afx_msg void OnCbnSelchangeIcon();
+    afx_msg void OnBnClickedClearHotkey();
     afx_msg void OnBnClickedTestRun();
     afx_msg void OnBnClickedOk();
     afx_msg void OnBnClickedCancel();
@@ -35,6 +37,9 @@ protected:
 private:
     // 更新图标预览
     void UpdateIconPreview();
+
+    // 更新热键输入框显示
+    void UpdateHotkeyDisplay();
 
     // 更新控件启用状态(分隔线勾选时禁用名称/脚本)
     void UpdateControlStates();
@@ -47,15 +52,20 @@ private:
 
 private:
     MenuConfigItem m_result;     // 编辑结果
+    UINT m_hotkeyModifiers = 0;  // 编辑中的热键修饰键
+    UINT m_hotkeyVk = 0;         // 编辑中的热键虚拟键码
 
     // 控件
     CEdit m_editName;
     CEdit m_editScript;
     CButton m_chkEnabled;
     CButton m_chkSeparator;
+    CButton m_chkShowInMenu;
     CComboBox m_comboIcon;
     CButton m_btnBrowseIcon;
     CStatic m_staticPreview;
     CEdit m_editIconIndex;
+    CEdit m_editHotkey;
+    CButton m_btnClearHotkey;
     CButton m_btnTestRun;
 };

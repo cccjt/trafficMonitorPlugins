@@ -47,10 +47,12 @@ BOOL COptionsDialog::OnInitDialog()
     m_list.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 
     // 添加列
-    m_list.InsertColumn(0, L"名称", LVCFMT_LEFT, 150);
-    m_list.InsertColumn(1, L"图标", LVCFMT_LEFT, 100);
-    m_list.InsertColumn(2, L"脚本预览", LVCFMT_LEFT, 250);
-    m_list.InsertColumn(3, L"状态", LVCFMT_CENTER, 60);
+    m_list.InsertColumn(0, L"名称", LVCFMT_LEFT, 130);
+    m_list.InsertColumn(1, L"热键", LVCFMT_LEFT, 85);
+    m_list.InsertColumn(2, L"图标", LVCFMT_LEFT, 70);
+    m_list.InsertColumn(3, L"脚本预览", LVCFMT_LEFT, 150);
+    m_list.InsertColumn(4, L"状态", LVCFMT_CENTER, 45);
+    m_list.InsertColumn(5, L"菜单", LVCFMT_CENTER, 45);
 
     RefreshList();
     UpdateButtons();
@@ -97,20 +99,25 @@ void COptionsDialog::RefreshList()
         const MenuConfigItem& item = m_items[i];
 
         CString name;
+        CString hotkey;
         CString iconSrc;
         CString scriptPreview;
         CString status;
+        CString menuState;
 
         if (item.isSeparator)
         {
             name = L"--- 分隔线 ---";
+            hotkey = L"";
             iconSrc = L"";
             scriptPreview = L"";
             status = L"";
+            menuState = L"";
         }
         else
         {
             name = item.name.c_str();
+            hotkey = item.GetHotkeyString().c_str();
             iconSrc = item.iconSource.empty() ? L"(无)" : item.iconSource.c_str();
 
             // 脚本预览:只显示第一行并截断
@@ -121,12 +128,15 @@ void COptionsDialog::RefreshList()
                 scriptPreview = scriptPreview.Left(60) + L"...";
 
             status = item.enabled ? L"启用" : L"禁用";
+            menuState = item.showInMenu ? L"显示" : L"隐藏";
         }
 
         int idx = m_list.InsertItem(static_cast<int>(i), name);
-        m_list.SetItemText(idx, 1, iconSrc);
-        m_list.SetItemText(idx, 2, scriptPreview);
-        m_list.SetItemText(idx, 3, status);
+        m_list.SetItemText(idx, 1, hotkey);
+        m_list.SetItemText(idx, 2, iconSrc);
+        m_list.SetItemText(idx, 3, scriptPreview);
+        m_list.SetItemText(idx, 4, status);
+        m_list.SetItemText(idx, 5, menuState);
 
         // 给非分隔线菜单项显示实际图标,相同图标复用同一个图片索引
         if (!item.isSeparator && !item.iconSource.empty())

@@ -30,6 +30,9 @@ void CMenuEditDialog::DoDataExchange(CDataExchange* pDX)
     DDX_Control(pDX, IDC_BTN_BROWSE_ICON, m_btnBrowseIcon);
     DDX_Control(pDX, IDC_STATIC_ICON_PREVIEW, m_staticPreview);
     DDX_Control(pDX, IDC_EDIT_ICON_INDEX, m_editIconIndex);
+    DDX_Control(pDX, IDC_EDIT_HOTKEY, m_editHotkey);
+    DDX_Control(pDX, IDC_BTN_CLEAR_HOTKEY, m_btnClearHotkey);
+    DDX_Control(pDX, IDC_CHECK_SHOW_IN_MENU, m_chkShowInMenu);
     DDX_Control(pDX, IDC_BTN_TEST_RUN, m_btnTestRun);
 }
 
@@ -37,6 +40,7 @@ BEGIN_MESSAGE_MAP(CMenuEditDialog, CDialogEx)
     ON_BN_CLICKED(IDC_BTN_BROWSE_ICON, &CMenuEditDialog::OnBnClickedBrowseIcon)
     ON_BN_CLICKED(IDC_CHECK_SEPARATOR, &CMenuEditDialog::OnBnClickedSeparator)
     ON_CBN_SELCHANGE(IDC_COMBO_ICON, &CMenuEditDialog::OnCbnSelchangeIcon)
+    ON_BN_CLICKED(IDC_BTN_CLEAR_HOTKEY, &CMenuEditDialog::OnBnClickedClearHotkey)
     ON_BN_CLICKED(IDC_BTN_TEST_RUN, &CMenuEditDialog::OnBnClickedTestRun)
     ON_BN_CLICKED(IDOK, &CMenuEditDialog::OnBnClickedOk)
     ON_BN_CLICKED(IDCANCEL, &CMenuEditDialog::OnBnClickedCancel)
@@ -59,6 +63,10 @@ BOOL CMenuEditDialog::OnInitDialog()
     m_editScript.SetWindowTextW(m_result.scriptCode.c_str());
     m_chkEnabled.SetCheck(m_result.enabled ? BST_CHECKED : BST_UNCHECKED);
     m_chkSeparator.SetCheck(m_result.isSeparator ? BST_CHECKED : BST_UNCHECKED);
+    m_chkShowInMenu.SetCheck(m_result.showInMenu ? BST_CHECKED : BST_UNCHECKED);
+    m_hotkeyModifiers = m_result.hotkeyModifiers;
+    m_hotkeyVk = m_result.hotkeyVk;
+    UpdateHotkeyDisplay();
 
     CString iconIndexText;
     iconIndexText.Format(L"%d", m_result.iconIndex);
@@ -106,11 +114,76 @@ void CMenuEditDialog::UpdateControlStates()
     m_btnBrowseIcon.EnableWindow(!isSeparator);
     m_btnTestRun.EnableWindow(!isSeparator);
 
+    // 没有设置热键的项无法从菜单之外触发,必须显示在菜单中
+    BOOL hasHotkey = !isSeparator && m_hotkeyVk != 0;
+    m_editHotkey.EnableWindow(!isSeparator);
+    m_btnClearHotkey.EnableWindow(hasHotkey);
+    m_chkShowInMenu.EnableWindow(hasHotkey);
+    if (!hasHotkey)
+    {
+        m_chkShowInMenu.SetCheck(BST_CHECKED);
+    }
+
     // 只有自定义文件图标才需要填写图标序号
     int sel = m_comboIcon.GetCurSel();
     int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
     BOOL isCustom = !isSeparator && sel > builtinCount;
     m_editIconIndex.EnableWindow(isCustom);
+}
+
+void CMenuEditDialog::UpdateHotkeyDisplay()
+{
+    m_editHotkey.SetWindowTextW(MenuConfigItem::HotkeyToString(m_hotkeyModifiers, m_hotkeyVk).c_str());
+}
+
+BOOL CMenuEditDialog::PreTranslateMessage(MSG* pMsg)
+{
+    if (pMsg->message == WM_KEYDOWN || pMsg->message == WM_SYSKEYDOWN)
+    {
+        // 焦点在热键输入框时捕获组合键
+        CWnd* focus = GetFocus();
+        if (focus == &m_editHotkey)
+        {
+            UINT vk = pMsg->wParam;
+
+            // 忽略单独的修饰键
+            if (vk == VK_CONTROL || vk == VK_MENU || vk == VK_SHIFT
+                || vk == VK_LWIN || vk == VK_RWIN)
+            {
+                return TRUE;
+            }
+
+            // Esc 关闭对话框,回车确认对话框
+            if (vk == VK_ESCAPE || vk == VK_RETURN)
+            {
+                return CDialogEx::PreTranslateMessage(pMsg);
+            }
+
+            // 捕获当前修饰键状态
+            m_hotkeyModifiers = 0;
+            if (::GetKeyState(VK_CONTROL) & 0x8000) m_hotkeyModifiers |= MOD_CONTROL;
+            if (::GetKeyState(VK_MENU) & 0x8000) m_hotkeyModifiers |= MOD_ALT;
+            if (::GetKeyState(VK_SHIFT) & 0x8000) m_hotkeyModifiers |= MOD_SHIFT;
+            if ((::GetKeyState(VK_LWIN) & 0x8000) || (::GetKeyState(VK_RWIN) & 0x8000))
+            {
+                m_hotkeyModifiers |= MOD_WIN;
+            }
+
+            m_hotkeyVk = vk;
+            UpdateHotkeyDisplay();
+            UpdateControlStates();
+            return TRUE;
+        }
+    }
+    return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+void CMenuEditDialog::OnBnClickedClearHotkey()
+{
+    m_hotkeyModifiers = 0;
+    m_hotkeyVk = 0;
+    UpdateHotkeyDisplay();
+    UpdateControlStates();
 }
 
 int CMenuEditDialog::GetSelectedIconIndex() const
@@ -279,6 +352,20 @@ void CMenuEditDialog::OnBnClickedOk()
         m_editScript.GetWindowTextW(tmp);
         m_result.scriptCode = tmp;
 
+        // 热键:未设置时清空修饰键,并强制显示在左键菜单中
+        if (m_hotkeyVk != 0)
+        {
+            m_result.hotkeyModifiers = m_hotkeyModifiers;
+            m_result.hotkeyVk = m_hotkeyVk;
+            m_result.showInMenu = (m_chkShowInMenu.GetCheck() == BST_CHECKED);
+        }
+        else
+        {
+            m_result.hotkeyModifiers = 0;
+            m_result.hotkeyVk = 0;
+            m_result.showInMenu = true;
+        }
+
         // 图标来源
         int sel = m_comboIcon.GetCurSel();
         int builtinCount = static_cast<int>(IconManager::Instance().GetBuiltinNames().size());
@@ -307,6 +394,9 @@ void CMenuEditDialog::OnBnClickedOk()
         m_result.scriptCode.clear();
         m_result.iconSource.clear();
         m_result.iconIndex = 0;
+        m_result.hotkeyModifiers = 0;
+        m_result.hotkeyVk = 0;
+        m_result.showInMenu = true;
     }
 
     CDialogEx::OnOK();

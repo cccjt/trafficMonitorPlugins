@@ -5,6 +5,46 @@
 #include "Logger.h"
 #include <Windows.h>
 
+namespace
+{
+// 生成不覆盖已有备份的备份路径
+std::wstring MakeBackupPath(const std::wstring& path)
+{
+    std::wstring candidate = path + L".bak";
+    if (::GetFileAttributesW(candidate.c_str()) == INVALID_FILE_ATTRIBUTES)
+    {
+        return candidate;
+    }
+
+    for (int i = 1; i < 100; ++i)
+    {
+        candidate = path + L".bak" + std::to_wstring(i);
+        if (::GetFileAttributesW(candidate.c_str()) == INVALID_FILE_ATTRIBUTES)
+        {
+            return candidate;
+        }
+    }
+    return path + L".bak" + std::to_wstring(::GetTickCount());
+}
+
+// 迁移前备份旧配置文件
+void BackupConfigFile(const std::wstring& path)
+{
+    if (::GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+
+    std::wstring backupPath = MakeBackupPath(path);
+    if (::CopyFileW(path.c_str(), backupPath.c_str(), FALSE))
+    {
+        Logger::Instance().Info(L"已备份旧配置: " + path + L" -> " + backupPath);
+    }
+    else
+    {
+        Logger::Instance().Warn(L"备份旧配置失败: " + path + L", 错误码="
+            + std::to_wstring(::GetLastError()));
+    }
+}
+}
+
 // 导出函数
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +101,21 @@ void MenuPlugin::OnInitialize(ITrafficMonitor* pApp)
 
     m_config.SetConfigPath(configDir + L"LeftClickMenu.ini");
     m_config.Load();
+
+    // 一次性导入旧版 HotkeyPlugin 配置,迁移前备份旧文件
+    std::wstring legacyHotkeyIni = configDir + L"HotkeyPlugin.ini";
+    if (m_config.ImportLegacyHotkeyConfig(legacyHotkeyIni))
+    {
+        BackupConfigFile(configDir + L"LeftClickMenu.ini");
+        BackupConfigFile(legacyHotkeyIni);
+        m_config.Save();
+    }
+
+    // 初始化全局热键:热键触发时执行对应菜单项的脚本
+    m_hotkeyManager.SetActionCallback([this](const MenuConfigItem& item) {
+        m_manager.ExecuteAction(item);
+    });
+    RegisterHotkeys();
 
     // 在任务栏显示区域上创建透明覆盖窗,接管左键点击
     // 不修改主程序窗口过程,右键/悬停等消息仍转发给主程序
@@ -120,6 +175,8 @@ ITMPlugin::OptionReturn MenuPlugin::ShowOptionsDialog(void* hParent)
     COptionsDialog dlg(m_config, CWnd::FromHandle(static_cast<HWND>(hParent)));
     if (dlg.DoModal() == IDOK)
     {
+        // 配置已由对话框保存,这里按新配置重新注册热键
+        RegisterHotkeys();
         return OR_OPTION_CHANGED;
     }
     return OR_OPTION_UNCHANGED;
@@ -129,11 +186,11 @@ const wchar_t* MenuPlugin::GetInfo(PluginInfoIndex index)
 {
     switch (index)
     {
-    case TMI_NAME:        return L"快捷菜单插件";
-    case TMI_DESCRIPTION: return L"左键点击显示项弹出自定义菜单,执行 PowerShell 脚本";
+    case TMI_NAME:        return L"快捷菜单与热键插件";
+    case TMI_DESCRIPTION: return L"左键点击显示项弹出自定义菜单,并支持为每个菜单项设置全局热键执行 PowerShell 脚本";
     case TMI_AUTHOR:      return L"TrafficMonitor User";
     case TMI_COPYRIGHT:   return L"Copyright (C) 2026";
-    case TMI_VERSION:     return L"1.00";
+    case TMI_VERSION:     return L"1.10";
     case TMI_URL:         return L"";
     }
     return L"";
@@ -165,9 +222,45 @@ void MenuPlugin::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* data)
 
 std::wstring MenuPlugin::GetDisplayText() const
 {
-    // 显示菜单项数量
-    int count = m_config.GetEnabledCount();
-    return std::to_wstring(count);
+    // 显示左键菜单中的菜单项数量
+    return std::to_wstring(m_config.GetVisibleMenuCount());
+}
+
+std::vector<MenuConfigItem> MenuPlugin::BuildVisibleMenuItems() const
+{
+    std::vector<MenuConfigItem> visible;
+    for (const auto& item : m_config.GetItems())
+    {
+        if (item.isSeparator)
+        {
+            // 跳过开头和连续的分隔线
+            if (visible.empty() || visible.back().isSeparator) continue;
+            visible.push_back(item);
+            continue;
+        }
+
+        if (!item.showInMenu) continue;
+        visible.push_back(item);
+    }
+
+    // 去掉末尾的分隔线
+    while (!visible.empty() && visible.back().isSeparator)
+    {
+        visible.pop_back();
+    }
+    return visible;
+}
+
+void MenuPlugin::RegisterHotkeys()
+{
+    if (!m_hotkeyManager.Initialize())
+    {
+        Logger::Instance().Warn(L"MenuPlugin::RegisterHotkeys: 热键管理器初始化失败");
+        return;
+    }
+
+    // 注册失败(热键无效或被占用)只记录日志,不影响菜单功能
+    m_hotkeyManager.RegisterAll(m_config.GetItems());
 }
 
 void MenuPlugin::ShowMenuFromItem(void* hWnd, int screenX, int screenY)
@@ -177,7 +270,8 @@ void MenuPlugin::ShowMenuFromItem(void* hWnd, int screenX, int screenY)
     if (hOwner == nullptr) hOwner = ::GetDesktopWindow();
 
     bool editRequested = false;
-    m_manager.ShowPopupMenu(m_config.GetItems(), hOwner, screenX, screenY, &editRequested);
+    std::vector<MenuConfigItem> visibleItems = BuildVisibleMenuItems();
+    m_manager.ShowPopupMenu(visibleItems, hOwner, screenX, screenY, &editRequested);
     if (editRequested)
     {
         ShowOptionsDialog(hWnd);
@@ -191,7 +285,8 @@ void MenuPlugin::ShowMenuFromTaskbar(HWND hTargetWnd, int screenX, int screenY)
     if (hOwner == nullptr) hOwner = ::GetDesktopWindow();
 
     bool editRequested = false;
-    m_manager.ShowPopupMenu(m_config.GetItems(), hOwner, screenX, screenY, &editRequested);
+    std::vector<MenuConfigItem> visibleItems = BuildVisibleMenuItems();
+    m_manager.ShowPopupMenu(visibleItems, hOwner, screenX, screenY, &editRequested);
     if (editRequested)
     {
         ShowOptionsDialog(hTargetWnd);
