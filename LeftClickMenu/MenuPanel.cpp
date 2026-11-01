@@ -138,11 +138,11 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     }
     else
     {
-        lf.lfHeight = -::MulDiv(9, m_dpi, 72);
+        lf.lfHeight = -::MulDiv(11, m_dpi, 72);
         lf.lfCharSet = DEFAULT_CHARSET;
         wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"Microsoft YaHei UI");
     }
-    lf.lfHeight = -::MulDiv(9, m_dpi, 72);
+    lf.lfHeight = -::MulDiv(11, m_dpi, 72);
     lf.lfWeight = FW_NORMAL;
     m_font = ::CreateFontIndirectW(&lf);
 
@@ -173,17 +173,17 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     }
 
     // 尺寸随 DPI 缩放
-    m_rowHeight = ::MulDiv(30, m_dpi, 96);
-    m_sepHeight = ::MulDiv(9, m_dpi, 96);
-    m_headerHeight = ::MulDiv(36, m_dpi, 96);
-    m_gearRowHeight = ::MulDiv(30, m_dpi, 96);
+    m_rowHeight = ::MulDiv(44, m_dpi, 96);
+    m_sepHeight = ::MulDiv(12, m_dpi, 96);
+    m_headerHeight = ::MulDiv(44, m_dpi, 96);
+    m_gearRowHeight = ::MulDiv(38, m_dpi, 96);
     m_paddingX = ::MulDiv(12, m_dpi, 96);
-    m_paddingY = ::MulDiv(4, m_dpi, 96);
-    m_iconSize = ::MulDiv(16, m_dpi, 96);
-    m_iconGap = ::MulDiv(8, m_dpi, 96);
-    m_tileGap = ::MulDiv(4, m_dpi, 96);
-    m_tileIconSize = ::MulDiv(24, m_dpi, 96);
-    m_tileCellHeight = ::MulDiv(58, m_dpi, 96);
+    m_paddingY = ::MulDiv(6, m_dpi, 96);
+    m_iconSize = ::MulDiv(24, m_dpi, 96);
+    m_iconGap = ::MulDiv(10, m_dpi, 96);
+    m_tileGap = ::MulDiv(6, m_dpi, 96);
+    m_tileIconSize = ::MulDiv(36, m_dpi, 96);
+    m_tileCellHeight = ::MulDiv(84, m_dpi, 96);
 
     // 面板宽度来自配置(96 DPI 像素),按 DPI 缩放
     const int minConfiguredWidth = ::MulDiv(160, m_dpi, 96);
@@ -198,6 +198,7 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     const int margin = ::MulDiv(8, m_dpi, 96);
 
     int workWidth = work.right - work.left - margin * 2;
+    m_maxPanelWidth = workWidth > 0 ? workWidth : m_width;
     if (workWidth > 0 && m_width > workWidth)
     {
         m_width = workWidth;
@@ -314,6 +315,16 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
 
 void MenuPanel::UpdateTileMetrics()
 {
+    // 平铺模式下面板宽度至少容纳图标和左右留白,不足时自动加宽
+    const int minCellWidth = m_tileIconSize + ::MulDiv(16, m_dpi, 96);
+    const int neededWidth = minCellWidth * m_tileColumns
+        + m_tileGap * (m_tileColumns - 1) + m_paddingX * 2;
+    if (m_tileMode && m_width < neededWidth
+        && (m_maxPanelWidth <= 0 || neededWidth <= m_maxPanelWidth))
+    {
+        m_width = neededWidth;
+    }
+
     int contentWidth = m_width - m_paddingX * 2;
     if (contentWidth < 1) contentWidth = 1;
 
@@ -352,6 +363,12 @@ int MenuPanel::CalculateContentHeight() const
 void MenuPanel::UpdateLayoutAfterModeChange()
 {
     if (m_hWnd == nullptr || !::IsWindow(m_hWnd)) return;
+
+    // 恢复配置宽度,平铺模式再按需要自动加宽
+    const int minConfiguredWidth = ::MulDiv(160, m_dpi, 96);
+    m_width = ::MulDiv(m_configuredWidth, m_dpi, 96);
+    if (m_width < minConfiguredWidth) m_width = minConfiguredWidth;
+    if (m_maxPanelWidth > 0 && m_width > m_maxPanelWidth) m_width = m_maxPanelWidth;
 
     UpdateTileMetrics();
     m_contentHeight = CalculateContentHeight();
@@ -965,7 +982,7 @@ void MenuPanel::DrawTileCell(HDC hdc, int index, const RECT& cellRect,
     }
 
     int cellWidth = cellRect.right - cellRect.left;
-    int iconSize = MinInt(m_tileIconSize, cellWidth - ::MulDiv(4, m_dpi, 96));
+    int iconSize = MinInt(m_tileIconSize, cellWidth - ::MulDiv(8, m_dpi, 96));
     if (iconSize < ::MulDiv(8, m_dpi, 96)) iconSize = ::MulDiv(8, m_dpi, 96);
 
     int iconX = cellRect.left + (cellWidth - iconSize) / 2;

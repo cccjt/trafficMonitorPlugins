@@ -190,7 +190,7 @@ const wchar_t* MenuPlugin::GetInfo(PluginInfoIndex index)
     case TMI_DESCRIPTION: return L"左键点击显示项弹出自定义菜单,并支持为每个菜单项设置全局热键执行 PowerShell 脚本";
     case TMI_AUTHOR:      return L"TrafficMonitor User";
     case TMI_COPYRIGHT:   return L"Copyright (C) 2026";
-    case TMI_VERSION:     return L"1.10";
+    case TMI_VERSION:     return L"1.11";
     case TMI_URL:         return L"";
     }
     return L"";

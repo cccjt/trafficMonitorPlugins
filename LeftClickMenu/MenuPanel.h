@@ -124,6 +124,7 @@ private:
     int m_screenX = 0;
     int m_screenY = 0;
     int m_maxBodyHeight = 0;
+    int m_maxPanelWidth = 0;
 
     bool m_tileMode = false;
     int m_tileColumns = 4;
