@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <g fill="none" stroke="#0f766e" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 显示器外框 -->
+    <rect x="18" y="30" width="220" height="146" rx="20" stroke-width="16"/>
+    <!-- 屏幕底色 -->
+    <rect x="30" y="42" width="196" height="122" rx="12" fill="#0f766e" fill-opacity="0.10" stroke="none"/>
+    <!-- 表盘 -->
+    <circle cx="128" cy="103" r="40" stroke-width="13"/>
+    <!-- 时针 -->
+    <path d="M128 103 V82" stroke-width="13"/>
+    <!-- 分针 -->
+    <path d="M128 103 L150 115" stroke-width="13"/>
+  </g>
+  <!-- 底座 -->
+  <g fill="#0f766e">
+    <rect x="116" y="172" width="24" height="20"/>
+    <rect x="78" y="190" width="100" height="16" rx="8"/>
+  </g>
+</svg>

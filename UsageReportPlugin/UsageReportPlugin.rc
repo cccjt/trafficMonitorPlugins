@@ -1,0 +1,10 @@
+#include "resource.h"
+
+// Report assets are embedded as RCDATA and extracted to the plugin config dir at runtime.
+IDR_REPORT_HTML     RCDATA "report\\pc-online-time-report.html"
+IDR_REPORT_CHARTS   RCDATA "report\\assets\\charts.js"
+IDR_REPORT_ECHARTS  RCDATA "report\\_shared\\js\\echarts.min.js"
+IDR_REPORT_SCRIPT   RCDATA "scripts\\generate-usage-report.ps1"
+
+// Plugin icon: monitor + clock, multi-size ico (16..256)
+IDI_PLUGIN_ICON     ICON   "res\\usage-report.ico"

@@ -64,6 +64,14 @@ Desktop.ini
 
 # Trae IDE
 .trae/
+.trae-html-share-packages/
+
+# UsageReportPlugin generated runtime data
+UsageReportPlugin/report/assets/data.js
+UsageReportPlugin/report/usage-events.csv
+
+# UsageReportPlugin WebView2 SDK (obtain via NuGet package when building locally)
+UsageReportPlugin/third_party/
 
 # JetBrains IDE
 .idea/
