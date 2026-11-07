@@ -90,6 +90,31 @@ private:
     UsageReportPopup* m_owner;
 };
 
+class ScriptHandler : public ComCallback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>
+{
+public:
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT /*errorCode*/, LPCWSTR /*id*/) override
+    {
+        return S_OK;
+    }
+};
+
+class WebMessageHandler : public ComCallback<ICoreWebView2WebMessageReceivedEventHandler>
+{
+public:
+    explicit WebMessageHandler(UsageReportPopup* owner) : m_owner(owner) {}
+
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* /*sender*/,
+        ICoreWebView2WebMessageReceivedEventArgs* args) override
+    {
+        m_owner->OnWebMessage(args);
+        return S_OK;
+    }
+
+private:
+    UsageReportPopup* m_owner;
+};
+
 int SystemDpi()
 {
     HDC dc = ::GetDC(nullptr);
@@ -132,13 +157,17 @@ UsageReportPopup::~UsageReportPopup()
 }
 
 void UsageReportPopup::Initialize(std::function<std::wstring()> reportDirProvider,
-    std::wstring htmlName, std::function<bool()> regenerate)
+    std::wstring htmlName, std::function<bool()> regenerate,
+    std::function<std::wstring()> initScriptProvider,
+    std::function<void(const std::wstring&)> messageHandler)
 {
     {
         std::lock_guard<std::mutex> lock(m_configMutex);
         m_reportDirProvider = std::move(reportDirProvider);
         m_htmlName = std::move(htmlName);
         m_regenerate = std::move(regenerate);
+        m_initScriptProvider = std::move(initScriptProvider);
+        m_messageHandler = std::move(messageHandler);
     }
 
     if (m_thread.joinable()) return;
@@ -447,7 +476,30 @@ void UsageReportPopup::ConfigureWebView()
         settings->put_IsStatusBarEnabled(FALSE);
         settings->put_AreDevToolsEnabled(FALSE);
         settings->put_IsBuiltInErrorPageEnabled(FALSE);
+        settings->put_IsWebMessageEnabled(TRUE);
         settings->Release();
+    }
+
+    // 接收页面通过 window.chrome.webview.postMessage 发来的文本消息
+    WebMessageHandler* messageHandler = new WebMessageHandler(this);
+    EventRegistrationToken token = { 0 };
+    if (SUCCEEDED(m_webView->add_WebMessageReceived(messageHandler, &token)))
+    {
+        m_messageToken = token.value;
+    }
+    messageHandler->Release();
+
+    // 页面脚本执行前注入心跳配置
+    std::wstring initScript;
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        if (m_initScriptProvider != nullptr) initScript = m_initScriptProvider();
+    }
+    if (!initScript.empty())
+    {
+        ScriptHandler* scriptHandler = new ScriptHandler();
+        m_webView->AddScriptToExecuteOnDocumentCreated(initScript.c_str(), scriptHandler);
+        scriptHandler->Release();
     }
 
     ICoreWebView2_3* webView3 = nullptr;
@@ -458,6 +510,26 @@ void UsageReportPopup::ConfigureWebView()
             GetReportDir().c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
         webView3->Release();
     }
+}
+
+void UsageReportPopup::OnWebMessage(void* args)
+{
+    ICoreWebView2WebMessageReceivedEventArgs* eventArgs =
+        static_cast<ICoreWebView2WebMessageReceivedEventArgs*>(args);
+    if (eventArgs == nullptr) return;
+
+    LPWSTR message = nullptr;
+    if (FAILED(eventArgs->TryGetWebMessageAsString(&message)) || message == nullptr) return;
+
+    std::wstring text(message);
+    ::CoTaskMemFree(message);
+
+    std::function<void(const std::wstring&)> handler;
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        handler = m_messageHandler;
+    }
+    if (handler != nullptr) handler(text);
 }
 
 void UsageReportPopup::NavigateToReport()
@@ -486,6 +558,14 @@ void UsageReportPopup::NavigateToReport()
 
 void UsageReportPopup::DestroyWebView()
 {
+    if (m_webView != nullptr && m_messageToken != 0)
+    {
+        EventRegistrationToken token = { 0 };
+        token.value = m_messageToken;
+        m_webView->remove_WebMessageReceived(token);
+        m_messageToken = 0;
+    }
+
     if (m_controller != nullptr)
     {
         m_controller->Close();

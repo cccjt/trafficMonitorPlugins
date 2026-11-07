@@ -45,7 +45,7 @@ body {
   .page { padding: 14px 14px 18px; }
 }
 
-header.masthead { border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 18px; }
+header.masthead { border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 18px; position: relative; padding-right: 104px; }
 
 .eyebrow {
   font-family: var(--mono);
@@ -246,6 +246,56 @@ footer .sources .src-url {
   .table-wrap { max-height: none; overflow: visible; }
   section { page-break-inside: avoid; }
 }
+
+/* 心跳设置 */
+.hb-toggle {
+  position: absolute; right: 0; top: 2px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border: 1px solid var(--rule); border-radius: 4px;
+  background: var(--bg2); color: var(--muted);
+  font-family: var(--body); font-size: 0.78rem; line-height: 1.4; cursor: pointer;
+}
+.hb-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.hb-toggle svg { width: 14px; height: 14px; display: block; }
+
+.hb-modal { position: fixed; inset: 0; z-index: 70; display: none; }
+.hb-modal.open { display: block; }
+.hb-backdrop { position: absolute; inset: 0; background: rgba(27, 27, 24, 0.36); }
+.hb-panel {
+  position: relative; width: calc(100% - 32px); max-width: 520px; margin: 7vh auto 0;
+  max-height: 82vh; display: flex; flex-direction: column;
+  background: var(--bg2); border: 1px solid var(--rule); border-radius: 8px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18); overflow: hidden;
+}
+.hb-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid var(--rule);
+}
+.hb-head b { font-size: 0.95rem; }
+.hb-body { padding: 14px 16px 4px; overflow-y: auto; }
+.hb-field { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; margin-bottom: 12px; }
+.hb-field.block { grid-template-columns: 1fr; align-items: start; gap: 6px; }
+.hb-field > span { font-size: 0.82rem; color: var(--muted); }
+.hb-field input[type="url"], .hb-field input[type="number"], .hb-field select, .hb-field textarea {
+  width: 100%; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg);
+  color: var(--ink); font-family: var(--body); font-size: 0.84rem; padding: 6px 8px;
+}
+.hb-field textarea { resize: vertical; min-height: 64px; font-family: var(--mono); font-size: 0.78rem; }
+.hb-field input:focus, .hb-field select:focus, .hb-field textarea:focus { outline: none; border-color: var(--accent); }
+.hb-switch { display: flex; align-items: center; gap: 8px; }
+.hb-switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+.hb-switch span { font-size: 0.8rem; color: var(--muted); }
+.hb-error { min-height: 18px; color: var(--accent2); font-size: 0.78rem; }
+.hb-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; border-top: 1px solid var(--rule);
+}
+.hb-status { font-size: 0.78rem; color: var(--accent); }
+.hb-save {
+  border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  border-radius: 4px; padding: 7px 18px; font-family: var(--body); font-size: 0.84rem; cursor: pointer;
+}
+.hb-save:hover { opacity: 0.9; }
 </style>
 </head>
 <body>
@@ -254,6 +304,15 @@ footer .sources .src-url {
 <header class="masthead">
   <div class="eyebrow">电源 + 锁屏事件审计 · CCC-HOME</div>
   <h1>电脑使用时长分析</h1>
+  <button type="button" class="hb-toggle" id="hb-open" title="心跳设置" aria-label="心跳设置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <path d="M4 7h16M4 12h16M4 17h16"></path>
+      <circle cx="9" cy="7" r="1.7" fill="currentColor" stroke="none"></circle>
+      <circle cx="15" cy="12" r="1.7" fill="currentColor" stroke="none"></circle>
+      <circle cx="7" cy="17" r="1.7" fill="currentColor" stroke="none"></circle>
+    </svg>
+    <span>心跳设置</span>
+  </button>
 </header>
 
 <div class="kpi-grid">
@@ -324,6 +383,182 @@ footer .sources .src-url {
     <div class="cal-timeline" id="modal-timeline"></div>
   </div>
 </div>
+
+<div class="hb-modal" id="hb-modal" aria-hidden="true">
+  <div class="hb-backdrop" data-hb-close="1"></div>
+  <div class="hb-panel" role="dialog" aria-modal="true" aria-labelledby="hb-title">
+    <div class="hb-head">
+      <b id="hb-title">心跳设置</b>
+      <button type="button" class="cal-close" id="hb-close" aria-label="关闭">×</button>
+    </div>
+    <div class="hb-body">
+      <div class="hb-field">
+        <span>开启心跳</span>
+        <div class="hb-switch">
+          <input type="checkbox" id="hb-enabled">
+          <span>开启后按间隔在后台发送请求</span>
+        </div>
+      </div>
+      <div class="hb-field">
+        <span>请求方式</span>
+        <select id="hb-method">
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+          <option value="PATCH">PATCH</option>
+          <option value="DELETE">DELETE</option>
+        </select>
+      </div>
+      <div class="hb-field">
+        <span>请求地址</span>
+        <input type="url" id="hb-url" placeholder="https://example.com/heartbeat" spellcheck="false">
+      </div>
+      <div class="hb-field">
+        <span>间隔（分钟）</span>
+        <input type="number" id="hb-interval" min="1" max="1440" step="1" value="5">
+      </div>
+      <div class="hb-field block">
+        <span>请求头（每行一条，格式 Key: Value）</span>
+        <textarea id="hb-headers" rows="3" placeholder="Authorization: Bearer token&#10;Content-Type: application/json" spellcheck="false"></textarea>
+      </div>
+      <div class="hb-field block">
+        <span>请求体</span>
+        <textarea id="hb-body" rows="4" placeholder="任意文本，留空则不发送请求体" spellcheck="false"></textarea>
+      </div>
+      <div class="hb-error" id="hb-error"></div>
+    </div>
+    <div class="hb-foot">
+      <span class="hb-status" id="hb-status"></span>
+      <button type="button" class="hb-save" id="hb-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var bridge = (window.chrome && window.chrome.webview) ? window.chrome.webview : null;
+
+  function el(id) { return document.getElementById(id); }
+
+  function b64decode(value) {
+    if (!value) return '';
+    try {
+      var binary = atob(value);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function b64encode(text) {
+    if (!text) return '';
+    var bytes = new TextEncoder().encode(text);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  function parseConfig(text) {
+    var config = { enabled: false, method: 'POST', interval: 5, url: '', headers: '', body: '' };
+    if (!text) return config;
+
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].replace(/\r/g, '');
+      var separator = line.indexOf('=');
+      if (separator < 0) continue;
+
+      var key = line.slice(0, separator).toLowerCase();
+      var value = line.slice(separator + 1);
+      if (key === 'enabled') {
+        config.enabled = value === '1' || value.toLowerCase() === 'true';
+      } else if (key === 'method') {
+        config.method = value.toUpperCase();
+      } else if (key === 'interval') {
+        var interval = parseInt(value, 10);
+        config.interval = isNaN(interval) ? 5 : Math.max(1, Math.min(1440, interval));
+      } else if (key === 'url') {
+        config.url = value;
+      } else if (key === 'headers') {
+        config.headers = b64decode(value);
+      } else if (key === 'body') {
+        config.body = b64decode(value);
+      }
+    }
+    return config;
+  }
+
+  var config = parseConfig(b64decode(window.__heartbeatConfigB64 || ''));
+
+  function fillForm() {
+    el('hb-enabled').checked = config.enabled;
+    el('hb-method').value = config.method;
+    el('hb-url').value = config.url;
+    el('hb-interval').value = config.interval;
+    el('hb-headers').value = config.headers;
+    el('hb-body').value = config.body;
+  }
+
+  function openModal() {
+    fillForm();
+    el('hb-error').textContent = bridge ? '' : '当前不在插件弹窗中，设置无法保存';
+    el('hb-status').textContent = '';
+    el('hb-modal').classList.add('open');
+    el('hb-modal').setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal() {
+    el('hb-modal').classList.remove('open');
+    el('hb-modal').setAttribute('aria-hidden', 'true');
+  }
+
+  function save() {
+    var enabled = el('hb-enabled').checked;
+    var method = el('hb-method').value;
+    var url = el('hb-url').value.trim();
+    var interval = parseInt(el('hb-interval').value, 10);
+    var headers = el('hb-headers').value;
+    var body = el('hb-body').value;
+
+    if (enabled && !url) { el('hb-error').textContent = '请填写请求地址'; return; }
+    if (enabled && !/^https?:\/\//i.test(url)) {
+      el('hb-error').textContent = '请求地址必须以 http:// 或 https:// 开头';
+      return;
+    }
+    if (isNaN(interval) || interval < 1) { el('hb-error').textContent = '间隔时间至少为 1 分钟'; return; }
+    if (!bridge) { el('hb-error').textContent = '当前不在插件弹窗中，设置无法保存'; return; }
+
+    var text = 'enabled=' + (enabled ? '1' : '0')
+      + '\nmethod=' + method
+      + '\ninterval=' + interval
+      + '\nurl=' + url
+      + '\nheaders=' + b64encode(headers)
+      + '\nbody=' + b64encode(body);
+
+    bridge.postMessage(text);
+    config = { enabled: enabled, method: method, interval: interval, url: url, headers: headers, body: body };
+    el('hb-error').textContent = '';
+    el('hb-status').textContent = enabled
+      ? ('已保存，后台每 ' + interval + ' 分钟发送一次')
+      : '已保存，心跳已关闭';
+  }
+
+  el('hb-open').addEventListener('click', openModal);
+  el('hb-close').addEventListener('click', closeModal);
+  el('hb-save').addEventListener('click', save);
+  el('hb-modal').addEventListener('click', function (event) {
+    if (event.target && event.target.getAttribute('data-hb-close') === '1') closeModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && el('hb-modal').classList.contains('open')) closeModal();
+  });
+
+  fillForm();
+})();
+</script>
 
 <script src="./_shared/js/echarts.min.js"></script>
 <script>

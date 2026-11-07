@@ -23,8 +23,12 @@ public:
     // 启动 UI 线程并创建隐藏窗口
     // reportDirProvider 每次创建 WebView2 时调用，保证配置目录变化后仍然正确
     // regenerate 在后台线程执行，返回是否成功
+    // initScriptProvider 在页面创建前注入脚本（用于向页面传递心跳配置）
+    // messageHandler 接收页面通过 postMessage 发来的文本消息
     void Initialize(std::function<std::wstring()> reportDirProvider,
-        std::wstring htmlName, std::function<bool()> regenerate);
+        std::wstring htmlName, std::function<bool()> regenerate,
+        std::function<std::wstring()> initScriptProvider,
+        std::function<void(const std::wstring&)> messageHandler);
 
     // 线程安全：显示窗口并刷新数据
     void RequestShow();
@@ -55,6 +59,7 @@ public:
     // 仅供 WebView2 回调调用
     void OnEnvironmentCreated(long hr, void* environment);
     void OnControllerCreated(long hr, void* controller);
+    void OnWebMessage(void* args);
 
 private:
 
@@ -66,6 +71,8 @@ private:
     std::function<std::wstring()> m_reportDirProvider;
     std::wstring m_htmlName;
     std::function<bool()> m_regenerate;
+    std::function<std::wstring()> m_initScriptProvider;
+    std::function<void(const std::wstring&)> m_messageHandler;
 
     HWND m_hLoading = nullptr;
     ICoreWebView2Controller* m_controller = nullptr;
@@ -74,4 +81,5 @@ private:
     bool m_pendingNavigate = false;
     bool m_environmentFailed = false;
     std::atomic<bool> m_busy{ false };
+    long long m_messageToken = 0;
 };

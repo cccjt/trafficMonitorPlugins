@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "../resource.h"
+#include "HeartbeatManager.h"
 #include "UsageReportPlugin.h"
 #include "UsageReportPopup.h"
 
@@ -15,7 +16,7 @@
 
 namespace
 {
-const wchar_t* kReportVersion = L"2026-11-01.18";
+const wchar_t* kReportVersion = L"2026-11-07.1";
 const wchar_t* kHtmlName = L"pc-online-time-report.html";
 const wchar_t* kScriptName = L"generate-usage-report.ps1";
 const wchar_t* kDisplayLogName = L"display-events.csv";
@@ -165,6 +166,8 @@ UsageReportPlugin& UsageReportPlugin::Instance()
 
 UsageReportPlugin::~UsageReportPlugin()
 {
+    HeartbeatManager::Instance().Shutdown();
+
     if (m_hDisplayNotify != nullptr)
     {
         ::PowerSettingUnregisterNotification(reinterpret_cast<HPOWERNOTIFY>(m_hDisplayNotify));
@@ -178,11 +181,15 @@ void UsageReportPlugin::OnInitialize(ITrafficMonitor* pApp)
     m_configDir = ResolveConfigDir();
     RegisterDisplayNotification();
 
+    HeartbeatManager::Instance().Initialize(JoinPath(ReportDir(), L"heartbeat.cfg"));
+
     // 弹窗常驻一个隐藏窗口，左键菜单脚本通过窗口消息唤起
     UsageReportPopup::Instance().Initialize(
         [this]() { return ReportDir(); },
         kHtmlName,
-        [this]() { return GenerateReport(); });
+        [this]() { return GenerateReport(); },
+        []() { return HeartbeatManager::Instance().BuildInitScript(); },
+        [](const std::wstring& text) { HeartbeatManager::Instance().ApplyConfigText(text); });
 }
 
 void UsageReportPlugin::RegisterDisplayNotification()
@@ -261,6 +268,7 @@ void UsageReportPlugin::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* da
     if (index == EI_CONFIG_DIR && data != nullptr && data[0] != L'\0')
     {
         m_configDir = data;
+        HeartbeatManager::Instance().Initialize(JoinPath(ReportDir(), L"heartbeat.cfg"));
     }
 }
 
@@ -272,7 +280,7 @@ const wchar_t* UsageReportPlugin::GetInfo(PluginInfoIndex index)
     case TMI_DESCRIPTION: return L"读取 Windows 电源/锁屏事件，实时统计每日电脑使用时长并生成可交互报告";
     case TMI_AUTHOR:      return L"TrafficMonitor Plugins";
     case TMI_COPYRIGHT:   return L"MIT";
-    case TMI_VERSION:     return L"1.0.0";
+    case TMI_VERSION:     return L"1.1.0";
     case TMI_URL:         return L"";
     }
     return L"";

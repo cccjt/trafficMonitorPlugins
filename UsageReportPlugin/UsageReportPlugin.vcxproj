@@ -84,12 +84,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="core\HeartbeatManager.h" />
     <ClInclude Include="core\PluginInterface.h" />
     <ClInclude Include="core\UsageReportPlugin.h" />
     <ClInclude Include="core\UsageReportPopup.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="core\HeartbeatManager.cpp" />
     <ClCompile Include="core\UsageReportPlugin.cpp" />
     <ClCompile Include="core\UsageReportPopup.cpp" />
   </ItemGroup>
