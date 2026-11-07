@@ -269,7 +269,7 @@ void MenuPlugin::ShowMenuFromItem(void* hWnd, int screenX, int screenY)
     if (hOwner == nullptr) hOwner = ::GetForegroundWindow();
     if (hOwner == nullptr) hOwner = ::GetDesktopWindow();
 
-    ShowPopupMenuInternal(hOwner, screenX, screenY, hWnd);
+    ShowPopupMenuInternal(hOwner, screenX, screenY);
 }
 
 void MenuPlugin::ShowMenuFromTaskbar(HWND hTargetWnd, int screenX, int screenY)
@@ -278,10 +278,10 @@ void MenuPlugin::ShowMenuFromTaskbar(HWND hTargetWnd, int screenX, int screenY)
     if (hOwner == nullptr) hOwner = ::GetForegroundWindow();
     if (hOwner == nullptr) hOwner = ::GetDesktopWindow();
 
-    ShowPopupMenuInternal(hOwner, screenX, screenY, hTargetWnd);
+    ShowPopupMenuInternal(hOwner, screenX, screenY);
 }
 
-void MenuPlugin::ShowPopupMenuInternal(HWND hOwner, int screenX, int screenY, void* hParent)
+void MenuPlugin::ShowPopupMenuInternal(HWND hOwner, int screenX, int screenY)
 {
     std::vector<MenuConfigItem> visibleItems = BuildVisibleMenuItems();
 
@@ -290,11 +290,10 @@ void MenuPlugin::ShowPopupMenuInternal(HWND hOwner, int screenX, int screenY, vo
     viewOptions.tileMode = m_config.IsTileMode();
     viewOptions.tileColumns = m_config.GetTileColumns();
 
-    bool editRequested = false;
     bool viewModeChanged = false;
     bool tileMode = viewOptions.tileMode;
     m_manager.ShowPopupMenu(visibleItems, hOwner, screenX, screenY, viewOptions,
-        &editRequested, &viewModeChanged, &tileMode);
+        &viewModeChanged, &tileMode);
 
     // 面板标题栏切换了显示模式,立即写入配置
     if (viewModeChanged)
@@ -303,11 +302,6 @@ void MenuPlugin::ShowPopupMenuInternal(HWND hOwner, int screenX, int screenY, vo
         m_config.Save();
         Logger::Instance().Info(L"面板显示模式已切换为"
             + std::wstring(tileMode ? L"平铺" : L"列表"));
-    }
-
-    if (editRequested)
-    {
-        ShowOptionsDialog(hParent);
     }
 }
 

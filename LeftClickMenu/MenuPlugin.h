@@ -51,8 +51,8 @@ private:
     // 构造左键菜单中实际显示的项(过滤隐藏项并整理分隔线)
     std::vector<MenuConfigItem> BuildVisibleMenuItems() const;
 
-    // 显示菜单面板并处理显示模式切换/打开设置
-    void ShowPopupMenuInternal(HWND hOwner, int screenX, int screenY, void* hParent);
+    // 显示菜单面板并处理显示模式切换
+    void ShowPopupMenuInternal(HWND hOwner, int screenX, int screenY);
 
 private:
     MenuConfig m_config;            // 配置

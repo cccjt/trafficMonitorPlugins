@@ -14,8 +14,8 @@ int MinInt(int a, int b) { return a < b ? a : b; }
 int MaxInt(int a, int b) { return a > b ? a : b; }
 
 // 方案开关:
-//   false = 方案 B(自绘标题栏,齿轮和关闭按钮在同一行)
-//   true  = 方案 A(系统标题栏,齿轮在关闭按钮下方)
+//   false = 方案 B(自绘标题栏,视图切换和关闭按钮在同一行)
+//   true  = 方案 A(系统标题栏,视图切换按钮单独占一行)
 const bool kUseSystemCaption = false;
 
 const wchar_t* const kPanelClassName = L"LeftClickMenuPanelWnd";
@@ -176,7 +176,7 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     m_rowHeight = ::MulDiv(40, m_dpi, 96);
     m_sepHeight = ::MulDiv(11, m_dpi, 96);
     m_headerHeight = ::MulDiv(42, m_dpi, 96);
-    m_gearRowHeight = ::MulDiv(36, m_dpi, 96);
+    m_toolbarHeight = ::MulDiv(36, m_dpi, 96);
     m_paddingX = ::MulDiv(12, m_dpi, 96);
     m_paddingY = ::MulDiv(6, m_dpi, 96);
     m_iconSize = ::MulDiv(22, m_dpi, 96);
@@ -228,7 +228,7 @@ bool MenuPanel::Create(HWND hOwner, int screenX, int screenY, const MenuViewOpti
     const int nonClientHeight = probe.bottom - probe.top;
 
     int maxClientHeight = work.bottom - work.top - margin * 2 - nonClientHeight;
-    const int headerHeight = kUseSystemCaption ? m_gearRowHeight : m_headerHeight;
+    const int headerHeight = kUseSystemCaption ? m_toolbarHeight : m_headerHeight;
     m_maxBodyHeight = maxClientHeight - headerHeight;
     if (m_maxBodyHeight < 0) m_maxBodyHeight = 0;
 
@@ -389,7 +389,7 @@ void MenuPanel::UpdateLayoutAfterModeChange()
     }
     m_scroll = 0;
 
-    const int headerHeight = kUseSystemCaption ? m_gearRowHeight : m_headerHeight;
+    const int headerHeight = kUseSystemCaption ? m_toolbarHeight : m_headerHeight;
     int clientHeight = headerHeight + m_viewHeight;
     m_height = clientHeight;
     m_bodyTop = headerHeight;
@@ -575,7 +575,7 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         POINT pt = { 0, 0 };
         ::GetCursorPos(&pt);
         ::ScreenToClient(hWnd, &pt);
-        if (self->PointInToggle(pt) || self->PointInGear(pt) || self->PointInClose(pt))
+        if (self->PointInToggle(pt) || self->PointInClose(pt))
         {
             ::SetCursor(::LoadCursorW(nullptr, IDC_HAND));
         }
@@ -603,12 +603,10 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
     case WM_MOUSELEAVE:
         self->m_trackingLeave = false;
-        if (self->m_hoverItem != -1 || self->m_hoverToggle
-            || self->m_hoverGear || self->m_hoverClose)
+        if (self->m_hoverItem != -1 || self->m_hoverToggle || self->m_hoverClose)
         {
             self->m_hoverItem = -1;
             self->m_hoverToggle = false;
-            self->m_hoverGear = false;
             self->m_hoverClose = false;
             self->Invalidate();
         }
@@ -629,11 +627,9 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         self->m_mouseDown = true;
         self->m_mouseDownPoint = pt;
         self->m_pressedToggle = self->PointInToggle(pt);
-        self->m_pressedGear = !self->m_pressedToggle && self->PointInGear(pt);
-        self->m_pressedClose = !self->m_pressedToggle && !self->m_pressedGear
-            && self->PointInClose(pt);
-        self->m_pressedItem = (!self->m_pressedToggle && !self->m_pressedGear
-            && !self->m_pressedClose) ? self->GetItemAtPoint(pt) : -1;
+        self->m_pressedClose = !self->m_pressedToggle && self->PointInClose(pt);
+        self->m_pressedItem = (!self->m_pressedToggle && !self->m_pressedClose)
+            ? self->GetItemAtPoint(pt) : -1;
         self->UpdateHover(pt);
         return 0;
     }
@@ -650,7 +646,6 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             self->m_pressedItem = -1;
             self->m_pressedToggle = false;
-            self->m_pressedGear = false;
             self->m_pressedClose = false;
             self->Close();
             return 0;
@@ -661,13 +656,6 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             self->m_pressedToggle = false;
             self->ToggleViewMode();
-            return 0;
-        }
-        if (self->m_pressedGear && self->PointInGear(pt))
-        {
-            self->m_result.editRequested = true;
-            self->m_pressedGear = false;
-            self->Close();
             return 0;
         }
         if (self->m_pressedClose && self->PointInClose(pt))
@@ -686,7 +674,6 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         self->m_pressedItem = -1;
         self->m_pressedToggle = false;
-        self->m_pressedGear = false;
         self->m_pressedClose = false;
         return 0;
     }
@@ -725,7 +712,6 @@ LRESULT CALLBACK MenuPanel::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             self->m_hoverItem = -1;
             self->m_hoverToggle = false;
-            self->m_hoverGear = false;
             self->m_hoverClose = false;
             self->m_selectedItem = self->FindNextItem(self->m_selectedItem, delta);
             self->EnsureItemVisible(self->m_selectedItem);
@@ -801,9 +787,8 @@ void MenuPanel::DrawHeader(HDC hdc)
 
     if (kUseSystemCaption)
     {
-        // 方案 A:系统标题栏自带关闭按钮,这里只画切换按钮和齿轮
+        // 方案 A:系统标题栏自带关闭按钮,这里只画视图切换按钮
         RECT toggleRect = GetToggleRect();
-        RECT gearRect = GetGearRect();
         if (m_hoverToggle)
         {
             FillRoundedRect(hdc, toggleRect, m_hoverColor, radius);
@@ -816,17 +801,11 @@ void MenuPanel::DrawHeader(HDC hdc)
         {
             DrawTileIcon(hdc, toggleRect, m_buttonColor);
         }
-        if (m_hoverGear)
-        {
-            FillRoundedRect(hdc, gearRect, m_hoverColor, radius);
-        }
-        DrawSlidersIcon(hdc, gearRect, m_buttonColor);
         return;
     }
 
     // 方案 B:自绘标题栏
     RECT toggleRect = GetToggleRect();
-    RECT gearRect = GetGearRect();
     RECT closeRect = GetCloseRect();
 
     RECT titleRect = { m_paddingX, 0, toggleRect.left - m_iconGap, m_headerHeight };
@@ -851,12 +830,6 @@ void MenuPanel::DrawHeader(HDC hdc)
     {
         DrawTileIcon(hdc, toggleRect, m_buttonColor);
     }
-
-    if (m_hoverGear)
-    {
-        FillRoundedRect(hdc, gearRect, m_hoverColor, radius);
-    }
-    DrawSlidersIcon(hdc, gearRect, m_buttonColor);
 
     if (m_hoverClose)
     {
@@ -1015,42 +988,6 @@ void MenuPanel::DrawSeparator(HDC hdc, const RECT& rc)
     ::DeleteObject(pen);
 }
 
-void MenuPanel::DrawSlidersIcon(HDC hdc, const RECT& rc, COLORREF color)
-{
-    int width = rc.right - rc.left;
-    int height = rc.bottom - rc.top;
-    int inset = ::MulDiv(5, m_dpi, 96);
-    int knobRadius = ::MulDiv(2, m_dpi, 96);
-    int x0 = rc.left + inset;
-    int x1 = rc.right - inset;
-    int y1 = rc.top + height / 4;
-    int y2 = rc.top + height / 2;
-    int y3 = rc.top + height * 3 / 4;
-
-    HPEN pen = ::CreatePen(PS_SOLID, MaxInt(1, ::MulDiv(1, m_dpi, 96)), color);
-    HGDIOBJ oldPen = ::SelectObject(hdc, pen);
-    ::MoveToEx(hdc, x0, y1, nullptr);
-    ::LineTo(hdc, x1, y1);
-    ::MoveToEx(hdc, x0, y2, nullptr);
-    ::LineTo(hdc, x1, y2);
-    ::MoveToEx(hdc, x0, y3, nullptr);
-    ::LineTo(hdc, x1, y3);
-
-    HBRUSH brush = ::CreateSolidBrush(color);
-    HGDIOBJ oldBrush = ::SelectObject(hdc, brush);
-    int knob1 = rc.left + width * 45 / 100;
-    int knob2 = rc.left + width * 70 / 100;
-    int knob3 = rc.left + width * 35 / 100;
-    ::Ellipse(hdc, knob1 - knobRadius, y1 - knobRadius, knob1 + knobRadius, y1 + knobRadius);
-    ::Ellipse(hdc, knob2 - knobRadius, y2 - knobRadius, knob2 + knobRadius, y2 + knobRadius);
-    ::Ellipse(hdc, knob3 - knobRadius, y3 - knobRadius, knob3 + knobRadius, y3 + knobRadius);
-
-    ::SelectObject(hdc, oldBrush);
-    ::DeleteObject(brush);
-    ::SelectObject(hdc, oldPen);
-    ::DeleteObject(pen);
-}
-
 void MenuPanel::DrawTileIcon(HDC hdc, const RECT& rc, COLORREF color)
 {
     // 2x2 方块图标,表示平铺视图
@@ -1141,32 +1078,20 @@ void MenuPanel::DrawItemIcon(HDC hdc, int index, const RECT& rc, bool disabled)
 RECT MenuPanel::GetToggleRect() const
 {
     int buttonSize = ::MulDiv(28, m_dpi, 96);
-    int buttonGap = ::MulDiv(4, m_dpi, 96);
-    RECT gearRect = GetGearRect();
 
-    RECT rc = { 0, 0, 0, 0 };
-    rc.left = gearRect.left - buttonGap - buttonSize;
-    rc.top = gearRect.top;
-    rc.right = rc.left + buttonSize;
-    rc.bottom = rc.top + buttonSize;
-    return rc;
-}
-
-RECT MenuPanel::GetGearRect() const
-{
-    int buttonSize = ::MulDiv(28, m_dpi, 96);
-    int padRight = ::MulDiv(8, m_dpi, 96);
     RECT rc = { 0, 0, 0, 0 };
     if (kUseSystemCaption)
     {
+        int padRight = ::MulDiv(8, m_dpi, 96);
         rc.left = m_width - padRight - buttonSize;
         rc.top = ::MulDiv(4, m_dpi, 96);
     }
     else
     {
         int buttonGap = ::MulDiv(4, m_dpi, 96);
-        rc.left = m_width - padRight - buttonSize * 2 - buttonGap;
-        rc.top = (m_headerHeight - buttonSize) / 2;
+        RECT closeRect = GetCloseRect();
+        rc.left = closeRect.left - buttonGap - buttonSize;
+        rc.top = closeRect.top;
     }
     rc.right = rc.left + buttonSize;
     rc.bottom = rc.top + buttonSize;
@@ -1190,12 +1115,6 @@ RECT MenuPanel::GetCloseRect() const
 bool MenuPanel::PointInToggle(POINT pt) const
 {
     RECT rc = GetToggleRect();
-    return ::PtInRect(&rc, pt) != FALSE;
-}
-
-bool MenuPanel::PointInGear(POINT pt) const
-{
-    RECT rc = GetGearRect();
     return ::PtInRect(&rc, pt) != FALSE;
 }
 
@@ -1337,15 +1256,12 @@ void MenuPanel::EnsureItemVisible(int index)
 void MenuPanel::UpdateHover(POINT pt)
 {
     bool toggle = PointInToggle(pt);
-    bool gear = !toggle && PointInGear(pt);
-    bool close = !toggle && !gear && PointInClose(pt);
-    int item = (toggle || gear || close) ? -1 : GetItemAtPoint(pt);
+    bool close = !toggle && PointInClose(pt);
+    int item = (toggle || close) ? -1 : GetItemAtPoint(pt);
 
-    if (toggle != m_hoverToggle || gear != m_hoverGear
-        || close != m_hoverClose || item != m_hoverItem)
+    if (toggle != m_hoverToggle || close != m_hoverClose || item != m_hoverItem)
     {
         m_hoverToggle = toggle;
-        m_hoverGear = gear;
         m_hoverClose = close;
         m_hoverItem = item;
         if (item >= 0)

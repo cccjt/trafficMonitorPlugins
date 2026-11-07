@@ -12,14 +12,13 @@ struct MenuViewOptions
 };
 
 // 自绘菜单面板:替代系统 TrackPopupMenu
-// 支持标题栏(显示模式切换 + 编辑齿轮 + 关闭按钮)、菜单项图标、悬停高亮、键盘选择、点击外部关闭
+// 支持标题栏(显示模式切换 + 关闭按钮)、菜单项图标、悬停高亮、键盘选择、点击外部关闭
 class MenuPanel
 {
 public:
     struct Result
     {
         int selectedIndex = -1;         // 选中的菜单项索引,未选择为 -1
-        bool editRequested = false;     // 是否点击了标题栏的编辑齿轮
         bool viewModeChanged = false;   // 是否点击了列表/平铺切换按钮
         bool tileMode = false;          // 切换后的显示模式
     };
@@ -52,7 +51,6 @@ private:
     void DrawItemRow(HDC hdc, int index, const RECT& rowRect, bool hovered, bool selected);
     void DrawTileCell(HDC hdc, int index, const RECT& cellRect, bool hovered, bool selected);
     void DrawSeparator(HDC hdc, const RECT& rc);
-    void DrawSlidersIcon(HDC hdc, const RECT& rc, COLORREF color);
     void DrawTileIcon(HDC hdc, const RECT& rc, COLORREF color);
     void DrawListIcon(HDC hdc, const RECT& rc, COLORREF color);
     void DrawCloseIcon(HDC hdc, const RECT& rc, COLORREF color);
@@ -60,11 +58,9 @@ private:
 
     // 布局与命中
     RECT GetToggleRect() const;
-    RECT GetGearRect() const;
     RECT GetCloseRect() const;
     int GetItemAtPoint(POINT pt) const;
     bool PointInToggle(POINT pt) const;
-    bool PointInGear(POINT pt) const;
     bool PointInClose(POINT pt) const;
     int FindNextItem(int from, int delta) const;
     void EnsureItemVisible(int index);
@@ -94,14 +90,12 @@ private:
     POINT m_mouseDownPoint = { 0, 0 };
     int m_pressedItem = -1;
     bool m_pressedToggle = false;
-    bool m_pressedGear = false;
     bool m_pressedClose = false;
 
     Result m_result;
 
     int m_hoverItem = -1;
     bool m_hoverToggle = false;
-    bool m_hoverGear = false;
     bool m_hoverClose = false;
     bool m_trackingLeave = false;
     int m_selectedItem = -1;
@@ -110,7 +104,7 @@ private:
     int m_width = 0;
     int m_height = 0;
     int m_headerHeight = 0;
-    int m_gearRowHeight = 0;
+    int m_toolbarHeight = 0;
     int m_rowHeight = 0;
     int m_sepHeight = 0;
     int m_paddingX = 0;

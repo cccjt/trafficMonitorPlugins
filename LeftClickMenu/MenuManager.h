@@ -17,13 +17,12 @@ public:
     // hWnd: 面板的 owner 窗口(任务栏窗口或主窗口)
     // x, y: 弹出位置(屏幕坐标)
     // viewOptions: 面板宽度、列表/平铺模式与每行列数
-    // editRequested: 非空时返回用户是否点击了"编辑"齿轮
     // viewModeChanged: 非空时返回用户是否切换了显示模式
     // tileMode: 非空时返回切换后的显示模式
     // 返回选中的菜单项索引,未选择返回 -1
     int ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hWnd, int x, int y,
-        const MenuViewOptions& viewOptions, bool* editRequested = nullptr,
-        bool* viewModeChanged = nullptr, bool* tileMode = nullptr);
+        const MenuViewOptions& viewOptions, bool* viewModeChanged = nullptr,
+        bool* tileMode = nullptr);
 
     // 执行 PowerShell 脚本(异步)
     // item: 菜单项配置

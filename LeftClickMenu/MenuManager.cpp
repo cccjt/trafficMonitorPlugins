@@ -13,10 +13,8 @@ MenuManager::MenuManager() {}
 MenuManager::~MenuManager() {}
 
 int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hWnd, int x, int y,
-    const MenuViewOptions& viewOptions, bool* editRequested,
-    bool* viewModeChanged, bool* tileMode)
+    const MenuViewOptions& viewOptions, bool* viewModeChanged, bool* tileMode)
 {
-    if (editRequested != nullptr) *editRequested = false;
     if (viewModeChanged != nullptr) *viewModeChanged = false;
     if (tileMode != nullptr) *tileMode = viewOptions.tileMode;
 
@@ -27,14 +25,8 @@ int MenuManager::ShowPopupMenu(const std::vector<MenuConfigItem>& items, HWND hW
 
     MenuPanel::Result result = MenuPanel::Show(items, hWnd, x, y, viewOptions);
 
-    if (editRequested != nullptr) *editRequested = result.editRequested;
     if (viewModeChanged != nullptr) *viewModeChanged = result.viewModeChanged;
     if (tileMode != nullptr) *tileMode = result.tileMode;
-    if (result.editRequested)
-    {
-        Logger::Instance().Info(L"ShowPopupMenu: 用户点击了编辑按钮");
-        return -1;
-    }
 
     if (result.selectedIndex >= 0 && result.selectedIndex < static_cast<int>(items.size()))
     {
