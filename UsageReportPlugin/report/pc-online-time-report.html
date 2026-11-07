@@ -417,13 +417,17 @@ footer .sources .src-url {
         <span>间隔（分钟）</span>
         <input type="number" id="hb-interval" min="1" max="1440" step="1" value="5">
       </div>
-      <div class="hb-field block">
-        <span>请求头（每行一条，格式 Key: Value）</span>
-        <textarea id="hb-headers" rows="3" placeholder="Authorization: Bearer token&#10;Content-Type: application/json" spellcheck="false"></textarea>
+      <div class="hb-field">
+        <span>设备名（默认计算机名，可修改）</span>
+        <input type="text" id="hb-device" placeholder="默认取 Windows 计算机名" spellcheck="false" maxlength="191">
       </div>
       <div class="hb-field block">
-        <span>请求体</span>
-        <textarea id="hb-body" rows="4" placeholder="任意文本，留空则不发送请求体" spellcheck="false"></textarea>
+        <span>请求头（设备名与间隔由插件自动添加，这里只填令牌）</span>
+        <textarea id="hb-headers" rows="3" placeholder="X-YCWL-Token: 后台设置的令牌" spellcheck="false"></textarea>
+      </div>
+      <div class="hb-field block">
+        <span>请求体（留空即可）</span>
+        <textarea id="hb-body" rows="4" placeholder="留空即可（当前协议不使用请求体）" spellcheck="false"></textarea>
       </div>
       <div class="hb-error" id="hb-error"></div>
     </div>
@@ -462,7 +466,7 @@ footer .sources .src-url {
   }
 
   function parseConfig(text) {
-    var config = { enabled: false, method: 'POST', interval: 5, url: '', headers: '', body: '' };
+    var config = { enabled: false, method: 'POST', interval: 5, url: '', device: '', headers: '', body: '' };
     if (!text) return config;
 
     var lines = text.split('\n');
@@ -482,6 +486,8 @@ footer .sources .src-url {
         config.interval = isNaN(interval) ? 5 : Math.max(1, Math.min(1440, interval));
       } else if (key === 'url') {
         config.url = value;
+      } else if (key === 'device') {
+        config.device = b64decode(value);
       } else if (key === 'headers') {
         config.headers = b64decode(value);
       } else if (key === 'body') {
@@ -498,6 +504,7 @@ footer .sources .src-url {
     el('hb-method').value = config.method;
     el('hb-url').value = config.url;
     el('hb-interval').value = config.interval;
+    el('hb-device').value = config.device;
     el('hb-headers').value = config.headers;
     el('hb-body').value = config.body;
   }
@@ -520,6 +527,7 @@ footer .sources .src-url {
     var method = el('hb-method').value;
     var url = el('hb-url').value.trim();
     var interval = parseInt(el('hb-interval').value, 10);
+    var device = el('hb-device').value.trim();
     var headers = el('hb-headers').value;
     var body = el('hb-body').value;
 
@@ -535,11 +543,12 @@ footer .sources .src-url {
       + '\nmethod=' + method
       + '\ninterval=' + interval
       + '\nurl=' + url
+      + '\ndevice=' + b64encode(device)
       + '\nheaders=' + b64encode(headers)
       + '\nbody=' + b64encode(body);
 
     bridge.postMessage(text);
-    config = { enabled: enabled, method: method, interval: interval, url: url, headers: headers, body: body };
+    config = { enabled: enabled, method: method, interval: interval, url: url, device: device, headers: headers, body: body };
     el('hb-error').textContent = '';
     el('hb-status').textContent = enabled
       ? ('已保存，后台每 ' + interval + ' 分钟发送一次')

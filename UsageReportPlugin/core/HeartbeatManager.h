@@ -12,6 +12,8 @@ struct HeartbeatConfig
     std::wstring method = L"POST";
     std::wstring url;
     int intervalMinutes = 5;
+    // 设备名:留空时自动取 Windows 计算机名,用户可在心跳设置里覆盖并落盘
+    std::wstring device;
     std::wstring headers;
     std::wstring body;
 };

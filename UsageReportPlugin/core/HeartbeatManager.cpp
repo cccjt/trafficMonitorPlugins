@@ -154,6 +154,42 @@ std::wstring NormalizeMethod(const std::wstring& method)
     return L"POST";
 }
 
+// 取 Windows 计算机名,作为设备名的默认值;取不到时退回固定串,保证后端永远有设备维度
+std::wstring ComputerName()
+{
+    wchar_t buffer[MAX_COMPUTERNAME_LENGTH + 1] = { 0 };
+    DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+    if (::GetComputerNameW(buffer, &size) && size > 0) return std::wstring(buffer, size);
+    return L"unknown";
+}
+
+// HTTP 头部只保证 ASCII 安全,而计算机名可能是中文:按 UTF-8 百分号编码,
+// 后端用 URLDecoder 还原;顺带把换行等控制字符一并编码,杜绝头部注入
+std::wstring EncodeDeviceHeader(const std::wstring& device)
+{
+    std::wstring name = device.empty() ? ComputerName() : device;
+    std::string utf8 = WideToUtf8(name);
+    static const char kHex[] = "0123456789ABCDEF";
+    std::string encoded;
+    encoded.reserve(utf8.size());
+    for (unsigned char ch : utf8)
+    {
+        bool safe = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
+            || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.' || ch == '~';
+        if (safe)
+        {
+            encoded += static_cast<char>(ch);
+        }
+        else
+        {
+            encoded += '%';
+            encoded += kHex[ch >> 4];
+            encoded += kHex[ch & 0x0F];
+        }
+    }
+    return std::wstring(encoded.begin(), encoded.end());
+}
+
 ULONGLONG FileTimeToUInt64(const FILETIME& ft)
 {
     return (static_cast<ULONGLONG>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
@@ -211,6 +247,8 @@ void HeartbeatManager::Shutdown()
 std::wstring HeartbeatManager::GetConfigText()
 {
     HeartbeatConfig config = Snapshot();
+    // 未配置设备名时把计算机名作为默认值显示给设置页,用户可直接修改或保持不动
+    if (config.device.empty()) config.device = ComputerName();
     return Serialize(config);
 }
 
@@ -339,11 +377,11 @@ void HeartbeatManager::SendRequest(const HeartbeatConfig& config)
         return;
     }
 
-    HINTERNET session = ::WinHttpOpen(L"UsageReportHeartbeat/1.0",
+    HINTERNET session = ::WinHttpOpen(L"UsageReportHeartbeat",
         WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (session == nullptr)
     {
-        session = ::WinHttpOpen(L"UsageReportHeartbeat/1.0",
+        session = ::WinHttpOpen(L"UsageReportHeartbeat",
             WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     }
     if (session == nullptr) return;
@@ -381,6 +419,13 @@ void HeartbeatManager::SendRequest(const HeartbeatConfig& config)
             ::WinHttpAddRequestHeaders(request, headers.c_str(), static_cast<DWORD>(-1),
                 WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE);
         }
+
+        // 设备名与心跳间隔由插件自动写入请求头;放在自定义头之后并用 REPLACE 覆盖同名值,
+        // 避免用户在「请求头」里手填一份导致后端收到两个值
+        std::wstring autoHeaders = L"X-YCWL-Device: " + EncodeDeviceHeader(config.device) + L"\r\n"
+            + L"X-YCWL-Interval: " + std::to_wstring(config.intervalMinutes) + L"\r\n";
+        ::WinHttpAddRequestHeaders(request, autoHeaders.c_str(), static_cast<DWORD>(-1),
+            WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE);
 
         std::string body = WideToUtf8(config.body);
         DWORD bodyLength = static_cast<DWORD>(body.size());
@@ -426,6 +471,7 @@ std::wstring HeartbeatManager::Serialize(const HeartbeatConfig& config)
     text += L"\nmethod=" + NormalizeMethod(config.method);
     text += L"\ninterval=" + std::to_wstring(config.intervalMinutes);
     text += L"\nurl=" + config.url;
+    text += L"\ndevice=" + EncodeValue(config.device);
     text += L"\nheaders=" + EncodeValue(config.headers);
     text += L"\nbody=" + EncodeValue(config.body);
     return text;
@@ -468,6 +514,10 @@ bool HeartbeatManager::Parse(const std::wstring& text, HeartbeatConfig& config)
         else if (key == L"url")
         {
             result.url = Trim(value);
+        }
+        else if (key == L"device")
+        {
+            result.device = DecodeValue(Trim(value));
         }
         else if (key == L"headers")
         {
